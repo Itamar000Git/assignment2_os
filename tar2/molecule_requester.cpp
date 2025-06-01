@@ -50,7 +50,7 @@ int main(int argc, char* argv[]) {
 
     while(true){
     std::cout << "What molecule do you want to create?";
-    std::cout <<"\n1 - WATER \n2 - CARBON_DIOXIDE \n3 - ALCOHOL \n4 - GLUCOSE \5 - EXIT"<<std::endl;
+    std::cout <<"\n1 - WATER \n2 - CARBON_DIOXIDE \n3 - ALCOHOL \n4 - GLUCOSE \n5 - EXIT"<<std::endl;
     int choice;
     std::cin >> choice;
     switch (choice) {

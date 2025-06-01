@@ -37,7 +37,7 @@ $(OBJDIR)/atom_supplier.o: atom_supplier.cpp
 $(OBJDIR)/molecule_requester.o: molecule_requester.cpp
 	$(C) $(CFLAGS) molecule_requester.cpp -o $(OBJDIR)/molecule_requester.o
 
-.PHONY: clean run atom_warehouse molecule_requester atom_supplier atom_supplier coverage
+.PHONY: clean run molecule_requester all atom_supplier coverage
 
 clean:
 	rm -rf $(OBJDIR) $(TARGET1) $(TARGET2) $(TARGET3) *.gcda *.gcno *.gcov $(COVERAGE_DIR)

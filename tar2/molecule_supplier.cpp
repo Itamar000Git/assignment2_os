@@ -319,10 +319,7 @@ int main(int argc, char *argv[]) { // Main function to start the server
         std::cout << "Invalid port number. Please provide a port between 1 and 65535." << std::endl;
         return 0;
     }
-    if (port_udp <= 0 || port_udp > 65535) {
-        std::cout << "Invalid port number. Please provide a port between 1 and 65535." << std::endl;
-        return 0;
-    }
+    
     try {
         run_server(port_tcp, port_udp);
     } catch (const std::runtime_error &e) {

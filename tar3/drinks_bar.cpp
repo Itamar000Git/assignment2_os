@@ -15,6 +15,8 @@
 
 int server_fd = -1, udp_fd = -1;
 
+
+
 void cleanup(int signum) {
 if (server_fd != -1) close(server_fd);
 if (udp_fd != -1) close(udp_fd);
@@ -114,12 +116,12 @@ bool deliver_glucose(long long count) {
     return true;
 }
      
+
 long long num_of_soft_drinks(){
     long long tmp_car=carbon_count;
     long long tmp_hyd=hydrogen_count;
     long long tmp_oxy=oxygen_count;
     long long count = 0;
-
     while(true){
         //water
         tmp_hyd -= 2;
@@ -131,7 +133,6 @@ long long num_of_soft_drinks(){
         tmp_car -= 6;
         tmp_hyd -= 12;
         tmp_oxy -= 6;
-
         if(tmp_hyd < 0 || tmp_oxy < 0 || tmp_car < 0){
             break;
         }
@@ -140,7 +141,6 @@ long long num_of_soft_drinks(){
     std::cout << "Number of soft drinks that can be created: " << count << std::endl;
     return count;
 }
-
 
 long long num_of_vodka(){
     long long tmp_car=carbon_count;
@@ -429,10 +429,7 @@ int main(int argc, char *argv[]) { // Main function to start the server
         std::cout << "Invalid port number. Please provide a port between 1 and 65535." << std::endl;
         return 0;
     }
-    if (port_udp <= 0 || port_udp > 65535) {
-        std::cout << "Invalid port number. Please provide a port between 1 and 65535." << std::endl;
-        return 0;
-    }
+   
     try {
         run_server(port_tcp, port_udp);
     } catch (const std::runtime_error &e) {
