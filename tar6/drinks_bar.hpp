@@ -19,7 +19,7 @@
     bool load_from_file = false;
     std::string stream_path;
     std::string datagram_path;
-    std::string save_file="";
+    std::string save_file="stock.bin"; // Default save file name
     static struct option long_options[] = {
     {"oxygen",    required_argument, 0, 'o'},
     {"carbon",    required_argument, 0, 'c'},
@@ -54,24 +54,9 @@
         void update_file(std::string save_file);
 
 
-        void add_carbon(long long count) {
-            my_stock->carbon_count += count;
-            my_stock->atom_count += count;
-            update_file(save_file);
-        }
-
-        void add_hydrogen(long long count) {
-            my_stock->hydrogen_count += count;
-            my_stock->atom_count += count;
-            update_file(save_file);
-        }
-
-        void add_oxygen(long long count) {
-            my_stock->oxygen_count += count;
-            my_stock->atom_count += count;
-            update_file(save_file);
-        }
-
+        void add_carbon(long long count);
+        void add_hydrogen(long long count);
+        void add_oxygen(long long count);
         bool deliver_water(long long count);
         bool deliver_carbon_dioxide(long long count);
         bool deliver_alcohol(long long count);

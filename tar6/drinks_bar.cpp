@@ -133,6 +133,24 @@ bool deliver_glucose(long long count) {
     return true;
 }
      
+void add_carbon(long long count) {
+    my_stock->carbon_count += count;
+    my_stock->atom_count += count;
+   
+    update_file(save_file);
+}
+
+void add_hydrogen(long long count) {
+    my_stock->hydrogen_count += count;
+    my_stock->atom_count += count;
+    update_file(save_file);
+}
+
+void add_oxygen(long long count) {
+    my_stock->oxygen_count += count;
+    my_stock->atom_count += count;
+    update_file(save_file);
+}
 
 long long num_of_soft_drinks(){
     long long tmp_car=my_stock->carbon_count;
@@ -742,92 +760,97 @@ void updateStock(int argc, char* argv[], int& port_tcp, int& port_udp) {
 }
 
 void loadFromFile(std::string save_file){
-    std::ifstream file(save_file);
-    if (!file.is_open()) {
+
+    int fd = open(save_file.c_str(), O_RDWR | O_CREAT, 0666);
+    if (fd < 0) {
         std::cerr << "Error: Could not open file " << save_file << std::endl;
         exit(EXIT_FAILURE);
     }
-    std::string line;
-    int t_atom_count = 0, tmp=0;
-    while (std::getline(file, line)) {
-        std::istringstream iss(line);
-        std::string atom;
-        long long count;
-        if (!(iss >> atom >> count) || count < 0) {
-            std::cerr << "Error: Invalid data in file " << save_file << std::endl;
-            exit(EXIT_FAILURE);
-        }
-        if (atom == "OXYGEN") {
-            my_stock->atom_count-=my_stock->oxygen_count; //remove previous count
-            my_stock->oxygen_count = 0; //reset to 0
-            add_oxygen(count); //add new count
-        } else if (atom == "CARBON") {
-            my_stock->atom_count-=my_stock->carbon_count;
-            my_stock->carbon_count = 0;
-            add_carbon(count);
-        } else if (atom == "HYDROGEN") {
-            my_stock->atom_count-=my_stock->hydrogen_count;
-            my_stock->hydrogen_count = 0;
-            add_hydrogen(count);
-        }else if (atom == "ATOMS"){
-            std::cout << "Total atoms in stock: " << count << std::endl;
-        
-        } else {
-            std::cerr << "Error: Unknown atom type in file " << save_file << std::endl;
-            exit(EXIT_FAILURE);
-        }
+    if (ftruncate(fd, sizeof(Stock)) == -1) { // Set the file size to the size of Stock
+        std::cerr << "Error: Could not set file size" << std::endl;
+        close(fd);
+        exit(EXIT_FAILURE);
     }
-    file.close();
+    struct flock fl; // File lock structure
+    fl.l_type = F_WRLCK; // Set the lock type to write lock
+    fl.l_whence = SEEK_SET; // Set the lock starting point to the beginning of the file
+    fl.l_start = 0; // Start locking from the beginning of the file
+    fl.l_len = 0; // Lock the entire file
+    fcntl(fd, F_SETLKW, &fl); // Apply the lock
+    // Map the file to memory
+    Stock* mapped_stock = (Stock*)mmap(NULL, sizeof(Stock), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (mapped_stock == MAP_FAILED) {
+        std::cerr << "Error: mmap failed" << std::endl;
+        close(fd);
+        exit(EXIT_FAILURE);
+    }
+    //   if (mapped_stock->atom_count == 0 && mapped_stock->carbon_count == 0 &&
+    //     mapped_stock->hydrogen_count == 0 && mapped_stock->oxygen_count == 0) {
+    //     mapped_stock->atom_count =  my_stock->atom_count;
+    //     mapped_stock->carbon_count = my_stock->carbon_count;
+    //     mapped_stock->hydrogen_count = my_stock->hydrogen_count;
+    //     mapped_stock->oxygen_count = my_stock->oxygen_count;
+    //     msync(mapped_stock, sizeof(Stock), MS_SYNC);
+    //     std::cout << "Initialized stock in file.\n";
+    // } else {
+    //     std::cout << "Loaded from file:\n";
+    // }
+    // Initialize the stock values if the file is empty
+    my_stock->atom_count = mapped_stock->atom_count;
+    my_stock->carbon_count = mapped_stock->carbon_count;
+    my_stock->hydrogen_count = mapped_stock->hydrogen_count;
+    my_stock->oxygen_count = mapped_stock->oxygen_count;
 
-    // int fd = open(save_file.c_str(), O_RDWR | O_CREAT, 0666);
-    // if (fd < 0) {
-    //     std::cerr << "Error: Could not open file " << save_file << std::endl;
-    //     exit(EXIT_FAILURE);
-    // }
-    // if (ftruncate(fd, sizeof(Stock)) == -1) { // Set the file size to the size of Stock
-    //     std::cerr << "Error: Could not set file size" << std::endl;
-    //     close(fd);
-    //     exit(EXIT_FAILURE);
-    // }
-    // struct flock fl;
-    // fl.l_type = F_WRLCK;
-    // fl.l_whence = SEEK_SET;
-    // fl.l_start = 0;
-    // fl.l_len = 0;
-    // fcntl(fd, F_SETLKW, &fl);
-    // Stock* mapped_stock = (Stock*)mmap(NULL, sizeof(Stock), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    // if (mapped_stock == MAP_FAILED) {
-    //     std::cerr << "Error: mmap failed" << std::endl;
-    //     close(fd);
-    //     exit(EXIT_FAILURE);
-    // }
+    fl.l_type = F_UNLCK; // Set the lock type to unlock
+    fcntl(fd, F_SETLK, &fl); // Release the lock
+    munmap(mapped_stock, sizeof(Stock)); // Unmap the memory
+    close(fd);
     
-
-    // my_stock->atom_count = mapped_stock->atom_count;
-    // my_stock->carbon_count = mapped_stock->carbon_count;
-    // my_stock->hydrogen_count = mapped_stock->hydrogen_count;
-    // my_stock->oxygen_count = mapped_stock->oxygen_count;
-
-    // fl.l_type = F_UNLCK;
-    // fcntl(fd, F_SETLK, &fl);
-    // munmap(mapped_stock, sizeof(Stock));
-    // close(fd);
-
 }
 
 void update_file(std::string file_p) {
     if(load_from_file==true){
-        std::ofstream file(file_p);
-        if (!file.is_open()) {
-            std::cerr << "Error: Could not open file " << file_p << std::endl;
-            exit(EXIT_FAILURE);
+
+        int fd = open(file_p.c_str(), O_RDWR | O_CREAT , 0666); // Open the file for reading and writing
+        if (fd < 0) {
+            std::cerr << "Error: Could not open filee " << file_p << std::endl;
+            return;
         }
-        file << "OXYGEN " << my_stock->oxygen_count << "\n";
-        file << "CARBON " << my_stock->carbon_count << "\n";
-        file << "HYDROGEN " << my_stock->hydrogen_count << "\n";
-        file.close();
+        if (ftruncate(fd, sizeof(Stock)) == -1) {
+        std::cerr << "Error: Could not set file size" << std::endl;
+        close(fd);
+        return;
+        }
+        struct flock fl; // File lock structure
+        fl.l_type = F_WRLCK; // Set the lock type to write lock
+        fl.l_whence = SEEK_SET; // Set the lock starting point to the beginning of the file
+        fl.l_start = 0; // Start locking from the beginning of the file
+        fl.l_len = 0; // Lock the entire file
+        fcntl(fd, F_SETLKW, &fl); // Apply the lock
+        // Map the file to memory
+        Stock* mapped_stock = (Stock*)mmap(NULL, sizeof(Stock), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+        if (mapped_stock == MAP_FAILED) {
+            std::cerr << "Error: mmap failed" << std::endl;
+            close(fd);
+            return;
+        }
+        
+        // Update the stock values in the mapped memory
+        mapped_stock->atom_count = my_stock->atom_count;
+        mapped_stock->carbon_count = my_stock->carbon_count;
+        mapped_stock->hydrogen_count = my_stock->hydrogen_count;
+        mapped_stock->oxygen_count = my_stock->oxygen_count;
+        msync(mapped_stock, sizeof(Stock), MS_SYNC); // Synchronize the changes to the file
+
+        fl.l_type = F_UNLCK;// Set the lock type to unlock
+        fcntl(fd, F_SETLK, &fl); // Release the lock
+        munmap(mapped_stock, sizeof(Stock)); // Unmap the memory
+        close(fd);
+    load_from_file=true; // for keeping the file updated
     }
 }
+
+
 
 int main(int argc, char *argv[]) { // Main function to start the server
     if (argc < 3) {
@@ -835,14 +858,18 @@ int main(int argc, char *argv[]) { // Main function to start the server
                   << " [-T <tcp_port> -U <udp_port> | -s <UDS stream file path> -d <UDS datagram file path>] [-o <oxygen>] [-c <carbon>] [-h <hydrogen>] [-t <timeout>]\n";
         return 0;
     }
-    
+        
 
     int port_tcp ;
     int port_udp ;
+
+   
     updateStock(argc, argv, port_tcp, port_udp);
-    if (load_from_file) {
-        loadFromFile(save_file);
+    if(load_from_file==true){
+       loadFromFile(save_file);
     }
+
+    
     printStock();
     signal(SIGINT, cleanup);
     signal(SIGALRM, timeout_handler);
