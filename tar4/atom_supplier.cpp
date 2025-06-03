@@ -120,7 +120,8 @@ int main(int argc, char* argv[]) {
                 return 0;
             default:
                 std::cout << "Invalid choice." << std::endl;
-                continue;
+                close(sockfd);
+                return 0;
         }
         if (count < 0) {
             std::cout << "Count must be a positive integer." << std::endl;

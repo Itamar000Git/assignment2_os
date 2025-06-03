@@ -172,7 +172,7 @@ long long num_of_vodka(){
         }
         count++;
     }
-    std::cout << "Number of champagne that can be created: " << count << std::endl;
+    std::cout << "Number of vodka that can be created: " << count << std::endl;
     return count;
 }
 
@@ -200,7 +200,7 @@ long long num_of_champagne(){
         }
         count++;
     }
-    std::cout << "Number of vodka that can be created: " << count << std::endl;
+    std::cout << "Number of champagne that can be created: " << count << std::endl;
     return count;
 }
 

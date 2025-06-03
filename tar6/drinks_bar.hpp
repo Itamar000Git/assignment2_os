@@ -17,6 +17,7 @@
     bool has_stream_path = false;
     bool has_datagram_path = false;
     bool load_from_file = false;
+    bool new_file = false;
     std::string stream_path;
     std::string datagram_path;
     std::string save_file="stock.bin"; // Default save file name

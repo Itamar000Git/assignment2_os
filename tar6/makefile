@@ -1,7 +1,7 @@
 # 
 C = g++
 CFLAGS = -c -g -Wall -fprofile-arcs -ftest-coverage
-LDFLAGS = -fprofile-arcs -ftest-coverage -lgcov
+LDFLAGS = -g -fprofile-arcs -ftest-coverage -lgcov
 
 OBJDIR = obj_files
 COVERAGE_DIR = coverage_files

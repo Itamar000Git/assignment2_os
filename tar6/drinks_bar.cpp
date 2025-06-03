@@ -18,6 +18,7 @@
 #include <fstream>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 
 
 int server_fd = -1, udp_fd = -1;
@@ -37,6 +38,7 @@ exit(0);
 }
 
 void printStock() {
+
     std::cout << "=== Current Stock ===" << std::endl;
     std::cout << "Total atoms   : " << my_stock->atom_count << std::endl;
     std::cout << "Carbon (C)    : " << my_stock->carbon_count << std::endl;
@@ -63,10 +65,12 @@ bool deliver_water(long long count){
         std::cout << "Error: Invalid count for water delivery." << std::endl;
         return false;
     }
+    loadFromFile(save_file);
     if (my_stock->hydrogen_count < 2 * count || my_stock->oxygen_count < count) {
         std::cout << "Error: Not enough atoms to deliver " << count << " water molecules." << std::endl;
         return false;
     }
+    
     my_stock->hydrogen_count -= 2 * count;
     my_stock->oxygen_count -= count;
     my_stock->atom_count -= 3 * count; // 2H + O = H2O
@@ -81,10 +85,13 @@ bool deliver_carbon_dioxide(long long count) {
         std::cout << "Error: Invalid count for carbon dioxide delivery." << std::endl;
         return false;
     }
+    loadFromFile(save_file);
     if (my_stock->carbon_count < count || my_stock->oxygen_count < 2 * count) {
         std::cout << "Error: Not enough atoms to deliver " << count << " carbon dioxide molecules." << std::endl;
         return false;
     }
+    
+
     my_stock->carbon_count -= count;
     my_stock->oxygen_count -= 2 * count;
     my_stock->atom_count -= 3 * count; //CO2
@@ -100,10 +107,13 @@ bool deliver_alcohol(long long count) {
         std::cout << "Error: Invalid count for alcohol delivery." << std::endl;
         return false;
     }
+    loadFromFile(save_file);
     if (my_stock->carbon_count < 2*count || my_stock->hydrogen_count <  6*count || my_stock->oxygen_count < count) {
         std::cout << "Error: Not enough atoms to deliver " << count << " alcohol molecules." << std::endl;
         return false;
     }
+    
+
     my_stock->carbon_count -= 2*count;
     my_stock->hydrogen_count -= 6 * count;
     my_stock->oxygen_count -= count;
@@ -119,10 +129,13 @@ bool deliver_glucose(long long count) {
         std::cout << "Error: Invalid count for glucose delivery." << std::endl;
         return false;
     }
+    loadFromFile(save_file);
     if (my_stock->carbon_count < 6*count || my_stock->hydrogen_count < 12 * count || my_stock->oxygen_count < 6*count) {
         std::cout << "Error: Not enough atoms to deliver " << count << " glucose molecules." << std::endl;
         return false;
     }
+    
+
     my_stock->carbon_count -= 6*count;
     my_stock->hydrogen_count -= 12*count;
     my_stock->oxygen_count -= 6*count;
@@ -134,6 +147,7 @@ bool deliver_glucose(long long count) {
 }
      
 void add_carbon(long long count) {
+    loadFromFile(save_file);
     my_stock->carbon_count += count;
     my_stock->atom_count += count;
    
@@ -141,18 +155,21 @@ void add_carbon(long long count) {
 }
 
 void add_hydrogen(long long count) {
+    loadFromFile(save_file);
     my_stock->hydrogen_count += count;
     my_stock->atom_count += count;
     update_file(save_file);
 }
 
 void add_oxygen(long long count) {
+    loadFromFile(save_file);
     my_stock->oxygen_count += count;
     my_stock->atom_count += count;
     update_file(save_file);
 }
 
 long long num_of_soft_drinks(){
+    loadFromFile(save_file);
     long long tmp_car=my_stock->carbon_count;
     long long tmp_hyd=my_stock->hydrogen_count;
     long long tmp_oxy=my_stock->oxygen_count;
@@ -178,6 +195,7 @@ long long num_of_soft_drinks(){
 }
 
 long long num_of_vodka(){
+    loadFromFile(save_file);
     long long tmp_car=my_stock->carbon_count;
     long long tmp_hyd=my_stock->hydrogen_count;
     long long tmp_oxy=my_stock->oxygen_count;
@@ -205,6 +223,7 @@ long long num_of_vodka(){
 }
 
 long long num_of_champagne(){
+    loadFromFile(save_file);
     long long tmp_car=my_stock->carbon_count;
     long long tmp_hyd=my_stock->hydrogen_count;
     long long tmp_oxy=my_stock->oxygen_count;
@@ -725,6 +744,15 @@ void updateStock(int argc, char* argv[], int& port_tcp, int& port_udp) {
             case 'f':
                 save_file = optarg;
                 load_from_file= true;
+                struct stat st;
+                if (stat(save_file.c_str(), &st) != 0) {
+                    new_file = true;
+                    int fd = open(save_file.c_str(), O_RDWR | O_CREAT , 0666); // Open the file for reading and writing
+                    if (fd < 0) {
+                        std::cerr << "Error: Could not open filee " << save_file << std::endl;
+                        return;
+                    }
+                }
                 break;
             default:
                 std::cerr << "Usage: " << argv[0]
@@ -756,11 +784,20 @@ void updateStock(int argc, char* argv[], int& port_tcp, int& port_udp) {
                   << " [-T <tcp_port> -U <udp_port> | -s <UDS stream file path> -d <UDS datagram file path>] [-o <oxygen>] [-c <carbon>] [-h <hydrogen>] [-t <timeout>]\n";
         exit(EXIT_FAILURE);
     }
-    
+
+    if(new_file==true){
+            update_file(save_file);
+            new_file = false;
+    }
+     
 }
 
-void loadFromFile(std::string save_file){
-
+void loadFromFile(std::string save_file){   
+if(load_from_file==true){
+   if(new_file==true){
+            update_file(save_file);
+            new_file = false;
+    }
     int fd = open(save_file.c_str(), O_RDWR | O_CREAT, 0666);
     if (fd < 0) {
         std::cerr << "Error: Could not open file " << save_file << std::endl;
@@ -784,18 +821,7 @@ void loadFromFile(std::string save_file){
         close(fd);
         exit(EXIT_FAILURE);
     }
-    //   if (mapped_stock->atom_count == 0 && mapped_stock->carbon_count == 0 &&
-    //     mapped_stock->hydrogen_count == 0 && mapped_stock->oxygen_count == 0) {
-    //     mapped_stock->atom_count =  my_stock->atom_count;
-    //     mapped_stock->carbon_count = my_stock->carbon_count;
-    //     mapped_stock->hydrogen_count = my_stock->hydrogen_count;
-    //     mapped_stock->oxygen_count = my_stock->oxygen_count;
-    //     msync(mapped_stock, sizeof(Stock), MS_SYNC);
-    //     std::cout << "Initialized stock in file.\n";
-    // } else {
-    //     std::cout << "Loaded from file:\n";
-    // }
-    // Initialize the stock values if the file is empty
+
     my_stock->atom_count = mapped_stock->atom_count;
     my_stock->carbon_count = mapped_stock->carbon_count;
     my_stock->hydrogen_count = mapped_stock->hydrogen_count;
@@ -805,17 +831,20 @@ void loadFromFile(std::string save_file){
     fcntl(fd, F_SETLK, &fl); // Release the lock
     munmap(mapped_stock, sizeof(Stock)); // Unmap the memory
     close(fd);
-    
+}
 }
 
 void update_file(std::string file_p) {
-    if(load_from_file==true){
 
+    if(load_from_file==true){
+        
+       // loadFromFile(file_p);
         int fd = open(file_p.c_str(), O_RDWR | O_CREAT , 0666); // Open the file for reading and writing
         if (fd < 0) {
             std::cerr << "Error: Could not open filee " << file_p << std::endl;
             return;
         }
+        
         if (ftruncate(fd, sizeof(Stock)) == -1) {
         std::cerr << "Error: Could not set file size" << std::endl;
         close(fd);
@@ -834,8 +863,8 @@ void update_file(std::string file_p) {
             close(fd);
             return;
         }
-        
-        // Update the stock values in the mapped memory
+
+    
         mapped_stock->atom_count = my_stock->atom_count;
         mapped_stock->carbon_count = my_stock->carbon_count;
         mapped_stock->hydrogen_count = my_stock->hydrogen_count;
@@ -846,8 +875,9 @@ void update_file(std::string file_p) {
         fcntl(fd, F_SETLK, &fl); // Release the lock
         munmap(mapped_stock, sizeof(Stock)); // Unmap the memory
         close(fd);
-    load_from_file=true; // for keeping the file updated
+        //printStock();
     }
+    
 }
 
 
@@ -858,16 +888,22 @@ int main(int argc, char *argv[]) { // Main function to start the server
                   << " [-T <tcp_port> -U <udp_port> | -s <UDS stream file path> -d <UDS datagram file path>] [-o <oxygen>] [-c <carbon>] [-h <hydrogen>] [-t <timeout>]\n";
         return 0;
     }
-        
+
 
     int port_tcp ;
     int port_udp ;
 
    
     updateStock(argc, argv, port_tcp, port_udp);
-    if(load_from_file==true){
+    //printStock();
+    std::cout << std::boolalpha << new_file << std::endl;
+    if(load_from_file==true && new_file==false){
        loadFromFile(save_file);
     }
+
+    // if(new_file==true){
+    //     new_file =false;
+    // }
 
     
     printStock();

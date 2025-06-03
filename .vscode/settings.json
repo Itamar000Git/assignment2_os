@@ -45,7 +45,8 @@
         "ostream": "cpp",
         "streambuf": "cpp",
         "typeinfo": "cpp",
-        "sstream": "cpp"
+        "sstream": "cpp",
+        "fstream": "cpp"
     },
-    "makefile.makefilePath": "/home/itamar/projects_CPP/assignment2_OS/tar1/makefile"
+    "makefile.makefilePath": "/home/itamar/projects_CPP/assignment2_OS/tar6/makefile"
 }
