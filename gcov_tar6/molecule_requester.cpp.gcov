@@ -1,0 +1,209 @@
+        -:    0:Source:molecule_requester.cpp
+        -:    0:Graph:molecule_requester.gcno
+        -:    0:Data:molecule_requester.gcda
+        -:    0:Runs:12
+        -:    1:#include <iostream>
+        -:    2:#include <cstring>
+        -:    3:#include <cstdlib>
+        -:    4:#include <unistd.h>
+        -:    5:#include <netdb.h>
+        -:    6:#include <sys/types.h>
+        -:    7:#include <sys/socket.h>
+        -:    8:#include <netinet/in.h>
+        -:    9:#include <arpa/inet.h>
+        -:   10:#include <sys/un.h>
+        -:   11:
+        -:   12:
+        -:   13:
+       12:   14:int main(int argc, char* argv[]) {
+       12:   15:    if (argc < 3) {
+        1:   16:        std::cerr << "Usage: " << argv[0] << " [-h <hostname> -p <port> | -f <UDS datagram file path>]" << std::endl;
+        1:   17:        return 1;
+        -:   18:    }
+       11:   19:    const char* hostname = nullptr;
+       11:   20:    int port = 0;
+        -:   21:    int opt;
+       11:   22:    bool has_host = false, has_port = false, has_file = false;
+       11:   23:    std::string uds_dgram_path;
+        -:   24:
+       26:   25:    while ((opt = getopt(argc, argv, "h:p:f:")) != -1) {
+       18:   26:        switch (opt) {
+        5:   27:            case 'h':
+        5:   28:                hostname = optarg;
+        5:   29:                has_host = true;
+        5:   30:                break;
+        5:   31:            case 'p':
+        5:   32:                port = std::atoi(optarg);
+        5:   33:                has_port = true;
+        5:   34:                if (port <= 0 || port > 65535) {
+        1:   35:                    std::cerr << "Error: Port must be a positive integer between 1 and 65535." << std::endl;
+        1:   36:                    exit(EXIT_FAILURE);
+        -:   37:                }
+        4:   38:                break;
+        7:   39:            case 'f':
+        7:   40:                uds_dgram_path = optarg;
+        7:   41:                has_file = true;
+        7:   42:                if (uds_dgram_path.empty()) {
+        1:   43:                    std::cerr << "Error: UDS datagram file path cannot be empty." << std::endl;
+        1:   44:                    exit(EXIT_FAILURE);
+        -:   45:                }
+        6:   46:                break;
+        1:   47:            default:
+        -:   48:                std::cerr << "Usage: " << argv[0]
+        1:   49:                          << " [-h <hostname> -p <port> | -f <UDS datagram file path>]\n";
+        1:   50:                exit(EXIT_FAILURE);
+        -:   51:        }
+        -:   52:    }
+        -:   53:
+        8:   54:    if ((!has_host || !has_port) && !has_file) {
+        1:   55:        std::cerr << "Error: Both -h (hostname) and -p (port) flags are required.\n";
+        -:   56:        std::cerr << "Usage: " << argv[0]
+        1:   57:                  << " [-h <hostname> -p <port> | -f <UDS datagram file path>]\n";
+        1:   58:        exit(EXIT_FAILURE);
+        -:   59:    }
+        7:   60:    if (has_file && (has_host || has_port)) {
+        2:   61:        std::cerr << "Error: Cannot use both hostname/port and UDS datagram file path together.\n";
+        -:   62:        std::cerr << "Usage: " << argv[0]
+        2:   63:                  << " [-h <hostname> -p <port> | -f <UDS datagram file path>]\n";
+        2:   64:        exit(EXIT_FAILURE);
+        -:   65:    }
+        -:   66:
+        5:   67:    int sockfd = -1;
+        -:   68:    struct sockaddr_storage server_addr_storage;
+        5:   69:    socklen_t server_addr_len = 0;
+        5:   70:    bool is_unix = false;
+       10:   71:    std::string client_path;
+        -:   72:
+        5:   73:    if (has_file) {
+        -:   74:        // UDS datagram
+        3:   75:        sockfd = socket(AF_UNIX, SOCK_DGRAM, 0);
+        3:   76:        if (sockfd < 0) {
+    #####:   77:            std::cerr << "Error opening UDS datagram socket" << std::endl;
+    #####:   78:            return 1;
+        -:   79:        }
+        -:   80:        
+        3:   81:        struct sockaddr_un* serv_addr = (struct sockaddr_un*)&server_addr_storage;
+        3:   82:        memset(serv_addr, 0, sizeof(*serv_addr));
+        3:   83:        serv_addr->sun_family = AF_UNIX;
+        3:   84:        strncpy(serv_addr->sun_path, uds_dgram_path.c_str(), sizeof(serv_addr->sun_path) - 1);
+        3:   85:        server_addr_len = sizeof(*serv_addr);
+        3:   86:        is_unix = true;
+        -:   87:
+        -:   88:      
+        3:   89:        client_path = "/tmp/molecule_req_" + std::to_string(getpid()) + ".sock";
+        -:   90:        struct sockaddr_un client_addr;
+        3:   91:        memset(&client_addr, 0, sizeof(client_addr));
+        3:   92:        client_addr.sun_family = AF_UNIX;
+        3:   93:        strncpy(client_addr.sun_path, client_path.c_str(), sizeof(client_addr.sun_path) - 1);
+        3:   94:        unlink(client_path.c_str());
+        3:   95:        if (bind(sockfd, (struct sockaddr*)&client_addr, sizeof(client_addr)) < 0) {
+    #####:   96:            std::cerr << "Error binding client UDS datagram socket" << std::endl;
+    #####:   97:            close(sockfd);
+    #####:   98:            return 1;
+        -:   99:        }
+        -:  100:
+        3:  101:        std::cout << "Connected to UDS datagram server. Enter commands:" << std::endl;
+        -:  102:    } else {
+        -:  103:        
+        2:  104:        struct hostent* server = gethostbyname(hostname);
+        2:  105:        if (!server) {
+        1:  106:            std::cerr << "No such host: " << hostname << std::endl;
+        1:  107:            return 1;
+        -:  108:        }
+        1:  109:        sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+        1:  110:        if (sockfd < 0) {
+    #####:  111:            std::cerr << "Error opening socket" << std::endl;
+    #####:  112:            return 1;
+        -:  113:        }
+        1:  114:        struct sockaddr_in* serv_addr = (struct sockaddr_in*)&server_addr_storage;
+        1:  115:        memset(serv_addr, 0, sizeof(*serv_addr));
+        1:  116:        serv_addr->sin_family = AF_INET;
+        1:  117:        memcpy(&serv_addr->sin_addr.s_addr, server->h_addr, server->h_length);
+        1:  118:        serv_addr->sin_port = htons(port);
+        1:  119:        server_addr_len = sizeof(*serv_addr);
+        -:  120:
+        1:  121:        std::cout << "Connected to server over UDP. Enter commands:" << std::endl;
+        -:  122:    }
+        -:  123:
+        -:  124:    while (true) {
+       13:  125:        std::cout << "What molecule do you want to create?";
+       13:  126:        std::cout << "\n1 - WATER \n2 - CARBON_DIOXIDE \n3 - ALCOHOL \n4 - GLUCOSE \n5 - EXIT" << std::endl;
+        -:  127:        int choice;
+       13:  128:        std::cin >> choice;
+       13:  129:        int count = 0;
+       13:  130:        std::string line;
+       13:  131:        switch (choice) {
+        5:  132:            case 1:
+        5:  133:                std::cout << "Enter number of water molecules to create: ";
+        5:  134:                std::cin >> count;
+        5:  135:                if (count < 0) {
+        1:  136:                    std::cerr << "Count cannot be negative." << std::endl;
+        1:  137:                    continue;
+        -:  138:                }
+        4:  139:                line = "DELIVER WATER " + std::to_string(count) + "\n";
+        4:  140:                break;
+        2:  141:            case 2:
+        2:  142:                std::cout << "Enter number of carbon dioxide molecules to create: ";
+        2:  143:                std::cin >> count;
+        2:  144:                if (count < 0) {
+        1:  145:                    std::cerr << "Count cannot be negative." << std::endl;
+        1:  146:                    continue;
+        -:  147:                }
+        1:  148:                line = "DELIVER CARBON_DIOXIDE " + std::to_string(count) + "\n";
+        1:  149:                break;
+        2:  150:            case 3:
+        2:  151:                std::cout << "Enter number of alcohol molecules to create: ";
+        2:  152:                std::cin >> count;
+        2:  153:                if (count < 0) {
+        1:  154:                    std::cerr << "Count cannot be negative." << std::endl;
+        1:  155:                    continue;
+        -:  156:                }
+        1:  157:                line = "DELIVER ALCOHOL " + std::to_string(count) + "\n";
+        1:  158:                break;
+        2:  159:            case 4:
+        2:  160:                std::cout << "Enter number of glucose molecules to create: ";
+        2:  161:                std::cin >> count;
+        2:  162:                if (count < 0) {
+        1:  163:                    std::cerr << "Count cannot be negative." << std::endl;
+        1:  164:                    continue;
+        -:  165:                }
+        1:  166:                line = "DELIVER GLUCOSE " + std::to_string(count) + "\n";
+        1:  167:                break;
+        1:  168:            case 5:
+        1:  169:                close(sockfd);
+       1*:  170:                if (is_unix) unlink(client_path.c_str());
+        1:  171:                return 0;
+        1:  172:            default:
+        1:  173:                std::cerr << "Invalid choice" << std::endl;
+        1:  174:                continue;
+        -:  175:        }
+        -:  176:
+        7:  177:        ssize_t sent = sendto(sockfd, line.c_str(), line.size(), 0,
+        -:  178:                              (struct sockaddr*)&server_addr_storage, server_addr_len);
+        7:  179:        if (sent < 0) {
+        2:  180:            std::cerr << "Send failed" << std::endl;
+        2:  181:            close(sockfd);
+        2:  182:            if (is_unix) unlink(client_path.c_str());
+        2:  183:            return 1;
+        -:  184:        }
+        -:  185:
+        5:  186:        char buffer[1024] = {0};
+        -:  187:        
+        5:  188:        ssize_t recv_len = recvfrom(sockfd, buffer, sizeof(buffer) - 1, 0, nullptr, nullptr);
+        5:  189:        if (recv_len > 0) {
+        5:  190:            buffer[recv_len] = '\0';
+        5:  191:            std::cout << "Server response: " << buffer;
+        -:  192:        } else {
+    #####:  193:            std::cerr << "No response from server." << std::endl;
+        -:  194:        }
+        -:  195:
+        5:  196:        std::cout << "Do you want to deliver more? (y/press any key to end) " << std::endl;
+        -:  197:        char more;
+        5:  198:        std::cin >> more;
+        5:  199:        if (more != 'y' && more != 'Y') {
+        1:  200:            break;
+        -:  201:        }
+       22:  202:    }
+        -:  203:  
+        1:  204:    return 0;
+        5:  205:}

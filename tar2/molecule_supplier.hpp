@@ -12,21 +12,7 @@
         void cleanup(int signum);
         void printStock();
         bool isInteger(const std::string& s);
-        long long get_atom_count() {
-            return atom_count;
-        }
 
-        long long get_carbon_count() {
-            return carbon_count;
-        }
-
-        long long get_hydrogen_count() {
-            return hydrogen_count;
-        }
-
-        long long get_oxygen_count() {
-            return oxygen_count;
-        }
 
         void add_carbon(long long count) {
             carbon_count += count;

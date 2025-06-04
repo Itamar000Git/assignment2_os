@@ -10,13 +10,7 @@
 
 
 int main(int argc, char* argv[]) {
-    // if (argc != 3) {
-    //     std::cerr << "Usage: " << argv[0] << " <hostname> <port>" << std::endl;
-    //     return 1;
-    // }
-
-    // const char* hostname = argv[1];
-    // int port = std::atoi(argv[2]);
+   
     
       if (argc != 5) {
         std::cerr << "Usage: " << argv[0] << "-h <hostname> -p <port>" << std::endl;

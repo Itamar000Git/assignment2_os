@@ -37,21 +37,7 @@
         void cleanup(int signum);
         void printStock();
         bool isInteger(const std::string& s);
-        long long& get_atom_count() {
-            return my_stock->atom_count;
-        }
-
-        long long& get_carbon_count() {
-            return my_stock->carbon_count;
-        }
-
-        long long& get_hydrogen_count() {
-            return my_stock->hydrogen_count;
-        }
-
-        long long& get_oxygen_count() {
-            return my_stock->oxygen_count;
-        }
+       
         void update_file(std::string save_file);
 
 

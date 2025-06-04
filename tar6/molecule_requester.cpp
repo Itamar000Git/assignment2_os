@@ -12,7 +12,7 @@
 
 
 int main(int argc, char* argv[]) {
-    if (argc < 3) {
+    if (argc < 3) {// Check if the user provided enough arguments
         std::cerr << "Usage: " << argv[0] << " [-h <hostname> -p <port> | -f <UDS datagram file path>]" << std::endl;
         return 1;
     }
@@ -21,7 +21,9 @@ int main(int argc, char* argv[]) {
     int opt;
     bool has_host = false, has_port = false, has_file = false;
     std::string uds_dgram_path;
-
+    /**
+     * @brief Parses command line options for hostname, port, and UDS datagram file path.
+     */
     while ((opt = getopt(argc, argv, "h:p:f:")) != -1) {
         switch (opt) {
             case 'h':
@@ -50,7 +52,7 @@ int main(int argc, char* argv[]) {
                 exit(EXIT_FAILURE);
         }
     }
-
+    // Check for ambiguous or missing arguments
     if ((!has_host || !has_port) && !has_file) {
         std::cerr << "Error: Both -h (hostname) and -p (port) flags are required.\n";
         std::cerr << "Usage: " << argv[0]
@@ -64,6 +66,7 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    // Create a socket for communication
     int sockfd = -1;
     struct sockaddr_storage server_addr_storage;
     socklen_t server_addr_len = 0;
@@ -77,7 +80,7 @@ int main(int argc, char* argv[]) {
             std::cerr << "Error opening UDS datagram socket" << std::endl;
             return 1;
         }
-        // כתובת שרת
+        // Set up the server address structure for UDS datagram
         struct sockaddr_un* serv_addr = (struct sockaddr_un*)&server_addr_storage;
         memset(serv_addr, 0, sizeof(*serv_addr));
         serv_addr->sun_family = AF_UNIX;
@@ -85,7 +88,7 @@ int main(int argc, char* argv[]) {
         server_addr_len = sizeof(*serv_addr);
         is_unix = true;
 
-        // כתובת לקוח ייחודית
+      
         client_path = "/tmp/molecule_req_" + std::to_string(getpid()) + ".sock";
         struct sockaddr_un client_addr;
         memset(&client_addr, 0, sizeof(client_addr));
@@ -100,8 +103,8 @@ int main(int argc, char* argv[]) {
 
         std::cout << "Connected to UDS datagram server. Enter commands:" << std::endl;
     } else {
-        // UDP רגיל
-        struct hostent* server = gethostbyname(hostname);
+        // TCP connection
+        struct hostent* server = gethostbyname(hostname);// Resolve hostname
         if (!server) {
             std::cerr << "No such host: " << hostname << std::endl;
             return 1;
@@ -111,6 +114,7 @@ int main(int argc, char* argv[]) {
             std::cerr << "Error opening socket" << std::endl;
             return 1;
         }
+        // Set up the server address structure for UDP
         struct sockaddr_in* serv_addr = (struct sockaddr_in*)&server_addr_storage;
         memset(serv_addr, 0, sizeof(*serv_addr));
         serv_addr->sin_family = AF_INET;
@@ -121,32 +125,48 @@ int main(int argc, char* argv[]) {
         std::cout << "Connected to server over UDP. Enter commands:" << std::endl;
     }
 
-    while (true) {
+    while (true) {// Main loop for user input
         std::cout << "What molecule do you want to create?";
         std::cout << "\n1 - WATER \n2 - CARBON_DIOXIDE \n3 - ALCOHOL \n4 - GLUCOSE \n5 - EXIT" << std::endl;
         int choice;
         std::cin >> choice;
         int count = 0;
         std::string line;
-        switch (choice) {
+        switch (choice) {// Handle user input for creating molecules
             case 1:
                 std::cout << "Enter number of water molecules to create: ";
                 std::cin >> count;
+                if (count < 0) {
+                    std::cerr << "Count cannot be negative." << std::endl;
+                    continue;
+                }
                 line = "DELIVER WATER " + std::to_string(count) + "\n";
                 break;
             case 2:
                 std::cout << "Enter number of carbon dioxide molecules to create: ";
                 std::cin >> count;
+                if (count < 0) {
+                    std::cerr << "Count cannot be negative." << std::endl;
+                    continue;
+                }
                 line = "DELIVER CARBON_DIOXIDE " + std::to_string(count) + "\n";
                 break;
             case 3:
                 std::cout << "Enter number of alcohol molecules to create: ";
                 std::cin >> count;
+                if (count < 0) {
+                    std::cerr << "Count cannot be negative." << std::endl;
+                    continue;
+                }
                 line = "DELIVER ALCOHOL " + std::to_string(count) + "\n";
                 break;
             case 4:
                 std::cout << "Enter number of glucose molecules to create: ";
                 std::cin >> count;
+                if (count < 0) {
+                    std::cerr << "Count cannot be negative." << std::endl;
+                    continue;
+                }
                 line = "DELIVER GLUCOSE " + std::to_string(count) + "\n";
                 break;
             case 5:
@@ -168,7 +188,7 @@ int main(int argc, char* argv[]) {
         }
 
         char buffer[1024] = {0};
-        // קבלת תשובה מהשרת
+        // Receive response from the server
         ssize_t recv_len = recvfrom(sockfd, buffer, sizeof(buffer) - 1, 0, nullptr, nullptr);
         if (recv_len > 0) {
             buffer[recv_len] = '\0';
@@ -184,7 +204,6 @@ int main(int argc, char* argv[]) {
             break;
         }
     }
-    // close(sockfd);
-    // if (is_unix) unlink(client_path.c_str());
+  
     return 0;
 }

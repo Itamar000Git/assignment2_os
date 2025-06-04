@@ -77,7 +77,7 @@ int main(int argc, char* argv[]) {
             std::cerr << "Error opening UDS datagram socket" << std::endl;
             return 1;
         }
-        // כתובת שרת
+       
         struct sockaddr_un* serv_addr = (struct sockaddr_un*)&server_addr_storage;
         memset(serv_addr, 0, sizeof(*serv_addr));
         serv_addr->sun_family = AF_UNIX;
@@ -85,7 +85,7 @@ int main(int argc, char* argv[]) {
         server_addr_len = sizeof(*serv_addr);
         is_unix = true;
 
-        // כתובת לקוח ייחודית
+        
         client_path = "/tmp/molecule_req_" + std::to_string(getpid()) + ".sock";
         struct sockaddr_un client_addr;
         memset(&client_addr, 0, sizeof(client_addr));
@@ -100,7 +100,7 @@ int main(int argc, char* argv[]) {
 
         std::cout << "Connected to UDS datagram server. Enter commands:" << std::endl;
     } else {
-        // UDP רגיל
+        
         struct hostent* server = gethostbyname(hostname);
         if (!server) {
             std::cerr << "No such host: " << hostname << std::endl;
@@ -168,7 +168,7 @@ int main(int argc, char* argv[]) {
         }
 
         char buffer[1024] = {0};
-        // קבלת תשובה מהשרת
+        
         ssize_t recv_len = recvfrom(sockfd, buffer, sizeof(buffer) - 1, 0, nullptr, nullptr);
         if (recv_len > 0) {
             buffer[recv_len] = '\0';

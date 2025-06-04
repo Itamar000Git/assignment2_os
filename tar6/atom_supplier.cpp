@@ -13,7 +13,7 @@
 
 
 int main(int argc, char* argv[]) {
-    if (argc < 3) {
+    if (argc < 3) { // Check if there are enough arguments
         std::cerr << "Usage: " << argv[0] << "[-h <hostname> -p <port> | -f <UDS stream file path>]" << std::endl;
         return 1;
     }
@@ -23,6 +23,9 @@ int main(int argc, char* argv[]) {
     bool has_host = false, has_port = false;
     bool has_file = false;
     std::string uds_stream_path;
+    /**
+     * @brief Parses command line arguments for hostname, port, and UDS stream file path.
+     */
      while ((opt = getopt(argc, argv, "h:p:f:")) != -1) {
         switch (opt) {
              if(std::atoi(optarg) <= 0) {
@@ -38,7 +41,7 @@ int main(int argc, char* argv[]) {
             
                 port = std::atoi(optarg);
                 has_port = true;
-                if (port <= 0 || port > 65535) {
+                if (port <= 0 || port > 65535) { // Check if port is valid
                     std::cerr << "Error: Port must be a positive integer between 1 and 65535." << std::endl;
                     exit(EXIT_FAILURE);
                 }
@@ -57,8 +60,8 @@ int main(int argc, char* argv[]) {
                 exit(EXIT_FAILURE);
         }
     }
-
-    if ((!has_host || !has_port)&& !has_file) {
+    // Check for ambiguous or missing arguments
+    if ((!has_host || !has_port)&& !has_file) { 
         std::cerr << "Error: Both -h (hostname) and -p (port) flags are required.\n";
         std::cerr << "Usage: " << argv[0]
                           << "  [-h <hostname> -p <port> | -f <UDS stream file path>]\n";
@@ -73,7 +76,7 @@ int main(int argc, char* argv[]) {
 
     int sockfd = -1;
 
-    if(has_file){
+    if(has_file){ // UDS stream
         sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
         if (sockfd < 0) {
             std::cerr << "Error opening UDS stream socket" << std::endl;
@@ -92,7 +95,7 @@ int main(int argc, char* argv[]) {
         std::cout << "Connected to UDS stream server. Enter commands:" << std::endl;
 
     }
-    else{
+    else{// TCP connection
          // Resolve hostname
         struct hostent* server = gethostbyname(hostname);
         if (!server) {
@@ -106,7 +109,7 @@ int main(int argc, char* argv[]) {
             std::cerr << "Error opening socket" << std::endl;
             return 1;
         }
-
+        // Set up server address structure
         struct sockaddr_in serv_addr;
         std::memset(&serv_addr, 0, sizeof(serv_addr));
         serv_addr.sin_family = AF_INET;
@@ -124,7 +127,7 @@ int main(int argc, char* argv[]) {
     }
    
 
-    while (true) {
+    while (true) {// Main loop for sending commands
         std::cout << "\nChoose atom to add:\n";
         std::cout << "1. Add Carbon\n";
         std::cout << "2. Add Hydrogen\n";
@@ -137,7 +140,7 @@ int main(int argc, char* argv[]) {
         int count = 0;
         std::string line;
 
-        switch (choice) {
+        switch (choice) { // Handle user input for adding atoms
             case 1:
                 std::cout << "Enter number of carbon atoms to add: ";
                 std::cin >> count;

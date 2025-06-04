@@ -22,21 +22,27 @@
 
 
 int server_fd = -1, udp_fd = -1;
-
+/**
+ * @brief Signal handler for timeout. Closes the server if no activity for a specified time.
+ * @param signum The signal number.
+ * This function is called when the timeout signal is received.
+ */
 void timeout_handler(int signum) {
     std::cout << "No activity for "<<timeout<<" seconds. Closing server." << std::endl;
     close(server_fd);
     close(udp_fd);
     exit(0);
 }
-
+/// Function to handle cleanup on exit
 void cleanup(int signum) {
 if (server_fd != -1) close(server_fd);
 if (udp_fd != -1) close(udp_fd);
 std::cout << "\nSockets closed. Exiting." << std::endl;
 exit(0);
 }
-
+/**
+ * @brief prints the current stock of atoms.
+ */
 void printStock() {
 
     std::cout << "=== Current Stock ===" << std::endl;
@@ -46,7 +52,9 @@ void printStock() {
     std::cout << "Oxygen (O)    : " << my_stock->oxygen_count << std::endl;
     std::cout << "=====================" << std::endl;
 }
-
+/**
+ * @brief Checks if a string represents a valid integer.
+ */
 bool isInteger(const std::string& s) {
     try {
         size_t pos;
@@ -60,11 +68,11 @@ bool isInteger(const std::string& s) {
     }
 }
 
+/**
+ * @brief Checkes if there are enough atoms to deliver the specified number of water molecules.
+ */
 bool deliver_water(long long count){
-    if (count <= 0) {
-        std::cout << "Error: Invalid count for water delivery." << std::endl;
-        return false;
-    }
+    
     loadFromFile(save_file);
     if (my_stock->hydrogen_count < 2 * count || my_stock->oxygen_count < count) {
         std::cout << "Error: Not enough atoms to deliver " << count << " water molecules." << std::endl;
@@ -80,11 +88,11 @@ bool deliver_water(long long count){
     return true;
 }
 
+/**
+ * @brief Checkes if there are enough atoms to deliver the specified number of carbon dioxide molecules.
+ */
 bool deliver_carbon_dioxide(long long count) {
-    if (count <= 0) {
-        std::cout << "Error: Invalid count for carbon dioxide delivery." << std::endl;
-        return false;
-    }
+
     loadFromFile(save_file);
     if (my_stock->carbon_count < count || my_stock->oxygen_count < 2 * count) {
         std::cout << "Error: Not enough atoms to deliver " << count << " carbon dioxide molecules." << std::endl;
@@ -102,11 +110,11 @@ bool deliver_carbon_dioxide(long long count) {
     return true;
 }
 
+/**
+ * @brief Checkes if there are enough atoms to deliver the specified number of alcohol molecules.
+ */
 bool deliver_alcohol(long long count) {
-    if (count <= 0) {
-        std::cout << "Error: Invalid count for alcohol delivery." << std::endl;
-        return false;
-    }
+
     loadFromFile(save_file);
     if (my_stock->carbon_count < 2*count || my_stock->hydrogen_count <  6*count || my_stock->oxygen_count < count) {
         std::cout << "Error: Not enough atoms to deliver " << count << " alcohol molecules." << std::endl;
@@ -124,11 +132,11 @@ bool deliver_alcohol(long long count) {
     return true;
 }
 
+/**
+ * @brief Checkes if there are enough atoms to deliver the specified number of glucose molecules.
+ */
 bool deliver_glucose(long long count) {
-    if (count <= 0) {
-        std::cout << "Error: Invalid count for glucose delivery." << std::endl;
-        return false;
-    }
+   
     loadFromFile(save_file);
     if (my_stock->carbon_count < 6*count || my_stock->hydrogen_count < 12 * count || my_stock->oxygen_count < 6*count) {
         std::cout << "Error: Not enough atoms to deliver " << count << " glucose molecules." << std::endl;
@@ -145,7 +153,10 @@ bool deliver_glucose(long long count) {
     update_file(save_file);
     return true;
 }
-     
+    
+/**
+ * @brief Adds carbon atoms to the stock and updates the file.
+ */
 void add_carbon(long long count) {
     loadFromFile(save_file);
     my_stock->carbon_count += count;
@@ -154,6 +165,9 @@ void add_carbon(long long count) {
     update_file(save_file);
 }
 
+/**
+ * @brief Adds hydrogen atoms to the stock and updates the file.
+ */
 void add_hydrogen(long long count) {
     loadFromFile(save_file);
     my_stock->hydrogen_count += count;
@@ -161,6 +175,9 @@ void add_hydrogen(long long count) {
     update_file(save_file);
 }
 
+/**
+ * @brief Adds oxygen atoms to the stock and updates the file.
+ */
 void add_oxygen(long long count) {
     loadFromFile(save_file);
     my_stock->oxygen_count += count;
@@ -168,6 +185,10 @@ void add_oxygen(long long count) {
     update_file(save_file);
 }
 
+/**
+ * @brief Calculates the number of soft drinks that can be created with the current stock.
+ * A soft drink consists of 1 water, 1 carbon dioxide, and 1 glucose molecule.
+ */
 long long num_of_soft_drinks(){
     loadFromFile(save_file);
     long long tmp_car=my_stock->carbon_count;
@@ -194,6 +215,10 @@ long long num_of_soft_drinks(){
     return count;
 }
 
+/**
+ * @brief Calculates the number of vodka that can be created with the current stock.
+ * A vodka consists of 1 water, 1 alcohol, and 1 glucose molecule.
+ */
 long long num_of_vodka(){
     loadFromFile(save_file);
     long long tmp_car=my_stock->carbon_count;
@@ -222,6 +247,10 @@ long long num_of_vodka(){
     return count;
 }
 
+/**
+ * @brief Calculates the number of champagne that can be created with the current stock.
+ * A champagne consists of 1 water, 1 alcohol, and 1 carbon dioxide molecule.
+ */
 long long num_of_champagne(){
     loadFromFile(save_file);
     long long tmp_car=my_stock->carbon_count;
@@ -251,6 +280,13 @@ long long num_of_champagne(){
     return count;
 }
 
+/**
+ * @brief Runs the server that listens for TCP and UDP connections.
+ * @param port_tcp The TCP port to listen on.
+ * @param port_udp The UDP port to listen on.
+ * This function sets up a TCP socket and a UDP socket, listens for incoming connections,
+ * and handles commands from both TCP clients and UDP datagrams.
+ */
 void run_server(int port_tcp, int port_udp) {
     int server_fd, new_socket, max_sd, activity, valread, sd;
     int client_socket[FD_SETSIZE] = {0};
@@ -262,17 +298,19 @@ void run_server(int port_tcp, int port_udp) {
         throw std::runtime_error("socket failed");
     }
     int opt = 1;
+    // Set socket options to allow reuse of the address
     if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
         throw std::runtime_error("setsockopt failed");
     }
 
+    // Set up the address structure for TCP
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons(port_tcp);
-    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
+    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {// Bind the socket to the address
         throw std::runtime_error("bind failed");
     }
-    if (listen(server_fd, 10) < 0) {
+    if (listen(server_fd, 10) < 0) {// Listen for incoming connections
         throw std::runtime_error("listen failed");
     }
     std::cout << "Server listening over tcp on port " << port_tcp << std::endl;
@@ -282,6 +320,7 @@ void run_server(int port_tcp, int port_udp) {
     if (udp_fd < 0) {
         throw std::runtime_error("UDP socket failed");
     }
+    //set socket struct for udp using
     struct sockaddr_in udp_addr;
     memset(&udp_addr, 0, sizeof(udp_addr));
     udp_addr.sin_family = AF_INET;
@@ -292,25 +331,25 @@ void run_server(int port_tcp, int port_udp) {
     }
     std::cout << "Server listening over udp on port " << port_udp << std::endl;
 
-    while (true) {
+    while (true) {// Main loop for handling connections and commands
         FD_ZERO(&readfds);
-        FD_SET(server_fd, &readfds);
-        FD_SET(udp_fd, &readfds);
+        FD_SET(server_fd, &readfds); // Add TCP server socket to the set
+        FD_SET(udp_fd, &readfds); // Add UDP socket to the set
         FD_SET(0, &readfds); // Add stdin to the set for reading
        
         max_sd = server_fd;
-        if (udp_fd > max_sd) max_sd = udp_fd;
+        if (udp_fd > max_sd) max_sd = udp_fd; // Update max_sd to the highest socket descriptor
         if (max_sd < 0) max_sd = 0;
 
-        for (int i = 0; i < FD_SETSIZE; i++) {
+        for (int i = 0; i < FD_SETSIZE; i++) { // Add all client sockets to the set
             sd = client_socket[i];
             if (sd > 0)
                 FD_SET(sd, &readfds);
             if (sd > max_sd)
                 max_sd = sd;
         }
-
-        activity = select(max_sd + 1, &readfds, nullptr, nullptr, nullptr);
+        
+        activity = select(max_sd + 1, &readfds, nullptr, nullptr, nullptr);// Wait for activity on the sockets
         if (activity < 0 && errno != EINTR) {
             std::cout << "select error" << std::endl;
             break;
@@ -325,13 +364,13 @@ void run_server(int port_tcp, int port_udp) {
             }
             for (int i = 0; i < FD_SETSIZE; i++) {
                 if (client_socket[i] == 0) {
-                    client_socket[i] = new_socket;
+                    client_socket[i] = new_socket; // Store the new socket in the client_socket array
                     break;
                 }
             }
             std::cout << "New connection, socket fd: " << new_socket << std::endl;
         }
-
+        // Handle input from stdin
         if (FD_ISSET(0, &readfds)) {
         std::string input;
         std::getline(std::cin, input);
@@ -357,11 +396,12 @@ void run_server(int port_tcp, int port_udp) {
             alarm(timeout);
         }
         // Handle UDP activity
-
             if (FD_ISSET(udp_fd, &readfds)) {
+            
             char udp_buffer[1024] = {0};
             struct sockaddr_in client_addr;
             socklen_t addrlen = sizeof(client_addr);
+            // Receive data from the UDP socket
             ssize_t udp_len = recvfrom(udp_fd, udp_buffer, sizeof(udp_buffer) - 1, 0,
                                     (struct sockaddr*)&client_addr, &addrlen);
             if (udp_len > 0) {
@@ -369,7 +409,7 @@ void run_server(int port_tcp, int port_udp) {
                 std::cout << "Received UDP: " << udp_buffer << std::endl;
                 std::istringstream iss(udp_buffer);
                 std::string line;
-                while (std::getline(iss, line)) {
+                while (std::getline(iss, line)) { // Read each line from the UDP buffer
                     std::istringstream line_stream(line);
                     std::string cmd, molecule, amount_str;
                     line_stream >> cmd >> molecule >> amount_str;
@@ -409,7 +449,7 @@ void run_server(int port_tcp, int port_udp) {
                             std::cout << "Error: Unknown molecule type: " << molecule << std::endl;
                             response = "ERROR: UNKNOWN MOLECULE\n";
                         }
-
+                        // Send response back to the client
                         ssize_t sent = sendto(udp_fd, response.c_str(), response.size(), 0,
                                             (struct sockaddr*)&client_addr, addrlen);
                         if (sent < 0) {
@@ -417,22 +457,18 @@ void run_server(int port_tcp, int port_udp) {
                         }
                         printStock();
                         alarm(timeout);
-                    } else if (!cmd.empty()) {
-                        std::cout << "Error: Invalid command: " << line << std::endl;
-                        std::string response = "ERROR: INVALID COMMAND\n";
-                        sendto(udp_fd, response.c_str(), response.size(), 0,
-                            (struct sockaddr*)&client_addr, addrlen);
                     }
+                    
                 }
             }
         }
 
         // Handle TCP client activity
         for (int i = 0; i < FD_SETSIZE; i++) {
-            sd = client_socket[i];
+            sd = client_socket[i]; // Check each client socket for activity
             if (sd > 0 && FD_ISSET(sd, &readfds)) {
                 char buffer[1024] = {0};
-                valread = read(sd, buffer, sizeof(buffer) - 1);
+                valread = read(sd, buffer, sizeof(buffer) - 1); // Read data from the client socket
                 if (valread <= 0) {
                     close(sd);
                     client_socket[i] = 0;
@@ -441,11 +477,11 @@ void run_server(int port_tcp, int port_udp) {
                     buffer[valread] = '\0';
                     std::istringstream iss(buffer);
                     std::string line;
-                    while (std::getline(iss, line)) {
+                    while (std::getline(iss, line)) { // Read each line from the client buffer
                         std::istringstream line_stream(line);
                         std::string cmd, atom, amount_str;
                         line_stream >> cmd >> atom >> amount_str;
-                        if (cmd == "ADD" && isInteger(amount_str)) {
+                        if (cmd == "ADD" && isInteger(amount_str)) { // Check if the command is to add atoms
                             int amount = std::stoi(amount_str);
                             if (atom == "CARBON") {
                                 add_carbon(amount);
@@ -471,7 +507,13 @@ void run_server(int port_tcp, int port_udp) {
     close(udp_fd);
 }
 
-
+/**
+ * @brief Runs the server that listens for UDS (Unix Domain Socket) connections.
+ * @param has_datagram_path Indicates if a UDS datagram path is provided.
+ * @param has_stream_path Indicates if a UDS stream path is provided.
+ * This function sets up a UDS stream socket and a UDS datagram socket, listens for incoming connections,
+ * and handles commands from both UDS stream clients and UDS datagram messages.
+ */
 void run_server_uds(bool has_datagram_path, bool has_stream_path) {
     
     int uds_stream_fd = -1, uds_dgram_fd = -1, new_socket, max_sd, activity, valread, sd;
@@ -479,9 +521,10 @@ void run_server_uds(bool has_datagram_path, bool has_stream_path) {
     fd_set readfds;
     // Create a uds stream
     if (!stream_path.empty()) {
-        uds_stream_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+        uds_stream_fd = socket(AF_UNIX, SOCK_STREAM, 0); // Create a UDS stream socket
         if (uds_stream_fd < 0) throw std::runtime_error("UDS dgram socket failed");
 
+        // Set up the address structure for UDS stream
         struct sockaddr_un stream_addr;
         memset(&stream_addr, 0, sizeof(stream_addr));
         stream_addr.sun_family = AF_UNIX;
@@ -497,7 +540,7 @@ void run_server_uds(bool has_datagram_path, bool has_stream_path) {
     }
     // Create a uds datagram
      if (!datagram_path.empty()) {
-        uds_dgram_fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+        uds_dgram_fd = socket(AF_UNIX, SOCK_DGRAM, 0); // Create a UDS datagram socket
         if (uds_dgram_fd < 0) throw std::runtime_error("UDS stream socket failed");
 
         struct sockaddr_un dgram_addr;
@@ -512,18 +555,19 @@ void run_server_uds(bool has_datagram_path, bool has_stream_path) {
 
         std::cout << "Server listening over UDS datagram at " << datagram_path << std::endl;
     }
-
-    while (true) {
+  
+    while (true) {// Main loop for handling UDS connections and commands
         FD_ZERO(&readfds);
         if (uds_stream_fd != -1) FD_SET(uds_stream_fd, &readfds);
         if (uds_dgram_fd != -1) FD_SET(uds_dgram_fd, &readfds);
         FD_SET(0, &readfds); // Add stdin to the set for reading
        
         max_sd =0;
+        // Update max_sd to the highest socket descriptor
         if (uds_stream_fd > max_sd) max_sd = uds_stream_fd;
         if (uds_dgram_fd > max_sd) max_sd = uds_dgram_fd;
 
-        for (int i = 0; i < FD_SETSIZE; i++) {
+        for (int i = 0; i < FD_SETSIZE; i++) { // Add all client sockets to the set
             sd = client_socket[i];
             if (sd > 0)
                 FD_SET(sd, &readfds);
@@ -531,15 +575,15 @@ void run_server_uds(bool has_datagram_path, bool has_stream_path) {
                 max_sd = sd;
         }
 
-        activity = select(max_sd + 1, &readfds, nullptr, nullptr, nullptr);
+        activity = select(max_sd + 1, &readfds, nullptr, nullptr, nullptr); // Wait for activity on the sockets
         if (activity < 0 && errno != EINTR) {
             std::cout << "select error" << std::endl;
             break;
         }
-
+        // Handle input from stdin
         if (FD_ISSET(0, &readfds)) {
         std::string input;
-        std::getline(std::cin, input);
+        std::getline(std::cin, input); // Read input from stdin
             if (input == "exit") {
                 std::cout << "Exiting server..." << std::endl;
                 break;
@@ -565,12 +609,12 @@ void run_server_uds(bool has_datagram_path, bool has_stream_path) {
         if (uds_stream_fd != -1 && FD_ISSET(uds_stream_fd, &readfds)) {
             struct sockaddr_un client_addr;
             socklen_t addrlen = sizeof(client_addr);
-            new_socket = accept(uds_stream_fd, (struct sockaddr*)&client_addr, &addrlen);
+            new_socket = accept(uds_stream_fd, (struct sockaddr*)&client_addr, &addrlen);// Accept a new UDS stream connection
             if (new_socket < 0) {
                 std::cout << "accept error" << std::endl;
                 continue;
             }
-            for (int i = 0; i < FD_SETSIZE; i++) {
+            for (int i = 0; i < FD_SETSIZE; i++) {// Find an empty slot in the client_socket array
                 if (client_socket[i] == 0) {
                     client_socket[i] = new_socket;
                     break;
@@ -583,6 +627,7 @@ void run_server_uds(bool has_datagram_path, bool has_stream_path) {
             char dgram_buffer[1024] = {0};
             struct sockaddr_un client_addr;
             socklen_t addrlen = sizeof(client_addr);
+            // Receive data from the UDS datagram socket
             ssize_t dgram_len = recvfrom(uds_dgram_fd, dgram_buffer, sizeof(dgram_buffer) - 1, 0,
                                     (struct sockaddr*)&client_addr, &addrlen);
             if (dgram_len > 0) {
@@ -590,14 +635,14 @@ void run_server_uds(bool has_datagram_path, bool has_stream_path) {
                 std::cout << "Received UDS datagram: " << dgram_buffer << std::endl;
                 std::istringstream iss(dgram_buffer);
                 std::string line;
-                while (std::getline(iss, line)) {
+                while (std::getline(iss, line)) { // Read each line from the UDS datagram buffer
                     std::istringstream line_stream(line);
                     std::string cmd, molecule, amount_str;
                     line_stream >> cmd >> molecule >> amount_str;
                     if (cmd == "DELIVER" && isInteger(amount_str)) {
                         int amount = std::stoi(amount_str);
                         std::string response;
-                        if (molecule == "WATER") {
+                        if (molecule == "WATER") { // Check if the command is to deliver water
                             if (!deliver_water(amount)) {
                                 std::cout << "Failed to deliver water." << std::endl;
                                 response = "FAILED TO DELIVER WATER\n";
@@ -638,12 +683,8 @@ void run_server_uds(bool has_datagram_path, bool has_stream_path) {
                         }
                         printStock();
                         alarm(timeout);
-                    } else if (!cmd.empty()) {
-                        std::cout << "Error: Invalid command: " << line << std::endl;
-                        std::string response = "ERROR: INVALID COMMAND\n";
-                        sendto(uds_dgram_fd, response.c_str(), response.size(), 0,
-                            (struct sockaddr*)&client_addr, addrlen);
-                    }
+                    } 
+                   
                 }
             }
         }
@@ -662,7 +703,7 @@ void run_server_uds(bool has_datagram_path, bool has_stream_path) {
                     buffer[valread] = '\0';
                     std::istringstream iss(buffer);
                     std::string line;
-                    while (std::getline(iss, line)) {
+                    while (std::getline(iss, line)) { // Read each line from the client buffer
                         std::istringstream line_stream(line);
                         std::string cmd, atom, amount_str;
                         line_stream >> cmd >> atom >> amount_str;
@@ -688,18 +729,22 @@ void run_server_uds(bool has_datagram_path, bool has_stream_path) {
             }
         }
     }
+    // Cleanup: close sockets and unlink UDS paths
     if (uds_stream_fd != -1) close(uds_stream_fd);
     if (uds_dgram_fd != -1) close(uds_dgram_fd);
     if (!stream_path.empty()) unlink(stream_path.c_str());
     if (!datagram_path.empty()) unlink(datagram_path.c_str());
 }
 
-
+/**
+ * @brief Updates the stock of atoms in the file.
+ * @param save_file The file where the stock is saved.
+ */
 void updateStock(int argc, char* argv[], int& port_tcp, int& port_udp) {
     int opt;
     bool has_tcp = false, has_udp = false;
     
-    while ((opt = getopt_long(argc, argv, "o:c:h:t:T:U:s:d:f:", long_options, nullptr)) != -1) {
+    while ((opt = getopt_long(argc, argv, "o:c:h:t:T:U:s:d:f:", long_options, nullptr)) != -1) {// Parse command line options
         switch (opt) {
              if(std::atoi(optarg) <= 0) {
                     std::cerr << "Error: any flag must be a positive integer." << std::endl;
@@ -720,7 +765,7 @@ void updateStock(int argc, char* argv[], int& port_tcp, int& port_udp) {
             case 'T':
                 port_tcp = std::atoi(optarg);
                 has_tcp = true;
-                if (port_tcp <= 0|| port_tcp > 65535) {
+                if (port_tcp <= 0|| port_tcp > 65535) { // Check if TCP port is a valid positive integer
                     std::cerr << "Error: TCP port must be a positive integer." << std::endl;
                     exit(EXIT_FAILURE);
                 }
@@ -760,6 +805,7 @@ void updateStock(int argc, char* argv[], int& port_tcp, int& port_udp) {
                 exit(EXIT_FAILURE);
         }
     }
+    // Check if ther is ambiguous options
       if ((has_tcp || has_udp) && (has_stream_path || has_datagram_path)) {
         std::cerr << "Error: Cannot use both TCP/UDP and UDS options together.\n";
         std::cerr << "Usage: " << argv[0]
@@ -784,7 +830,7 @@ void updateStock(int argc, char* argv[], int& port_tcp, int& port_udp) {
                   << " [-T <tcp_port> -U <udp_port> | -s <UDS stream file path> -d <UDS datagram file path>] [-o <oxygen>] [-c <carbon>] [-h <hydrogen>] [-t <timeout>]\n";
         exit(EXIT_FAILURE);
     }
-
+    // Initialize the stock
     if(new_file==true){
             update_file(save_file);
             new_file = false;
@@ -792,6 +838,13 @@ void updateStock(int argc, char* argv[], int& port_tcp, int& port_udp) {
      
 }
 
+/**
+ * @brief Loads the stock from a file.
+ * @param save_file The file from which to load the stock.
+ * This function maps the file to memory, reads the stock data, and updates the in-memory stock structure.
+ * It also applies a write lock to ensure exclusive access while reading the file.
+ * If the file does not exist, it creates a new file with the initial stock values.
+ */
 void loadFromFile(std::string save_file){   
 if(load_from_file==true){
    if(new_file==true){
@@ -822,6 +875,7 @@ if(load_from_file==true){
         exit(EXIT_FAILURE);
     }
 
+    // Initialize the stock from the mapped memory
     my_stock->atom_count = mapped_stock->atom_count;
     my_stock->carbon_count = mapped_stock->carbon_count;
     my_stock->hydrogen_count = mapped_stock->hydrogen_count;
@@ -834,6 +888,12 @@ if(load_from_file==true){
 }
 }
 
+/**
+ * @brief Updates the stock in the file with the current values.
+ * @param file_p The file where the stock is saved.
+ * This function maps the file to memory, updates the stock values, and synchronizes the changes to the file.
+ * It also applies a write lock to ensure exclusive access while writing to the file.
+ */
 void update_file(std::string file_p) {
 
     if(load_from_file==true){
@@ -864,7 +924,7 @@ void update_file(std::string file_p) {
             return;
         }
 
-    
+        // Update the stock values in the mapped memory
         mapped_stock->atom_count = my_stock->atom_count;
         mapped_stock->carbon_count = my_stock->carbon_count;
         mapped_stock->hydrogen_count = my_stock->hydrogen_count;
@@ -883,7 +943,7 @@ void update_file(std::string file_p) {
 
 
 int main(int argc, char *argv[]) { // Main function to start the server
-    if (argc < 3) {
+    if (argc < 3) { // Check if the required arguments are provided
           std::cerr << "Usage: " << argv[0]
                   << " [-T <tcp_port> -U <udp_port> | -s <UDS stream file path> -d <UDS datagram file path>] [-o <oxygen>] [-c <carbon>] [-h <hydrogen>] [-t <timeout>]\n";
         return 0;
@@ -895,32 +955,29 @@ int main(int argc, char *argv[]) { // Main function to start the server
 
    
     updateStock(argc, argv, port_tcp, port_udp);
-    //printStock();
-    std::cout << std::boolalpha << new_file << std::endl;
+
+
     if(load_from_file==true && new_file==false){
        loadFromFile(save_file);
     }
 
-    // if(new_file==true){
-    //     new_file =false;
-    // }
+
 
     
     printStock();
-    signal(SIGINT, cleanup);
-    signal(SIGALRM, timeout_handler);
-    alarm(timeout);
+    signal(SIGINT, cleanup);// Register signal handler for cleanup on Ctrl+C
+    signal(SIGALRM, timeout_handler); // Register signal handler for timeout
+    alarm(timeout); // Set the initial timeout
 
     
 
     try {
         if(has_datagram_path || has_stream_path) {
-              run_server_uds(has_datagram_path, has_stream_path );  
-            
-           
+              run_server_uds(has_datagram_path, has_stream_path );  // Run the server with UDS sockets
+
         }
         else{
-            run_server(port_tcp, port_udp);
+            run_server(port_tcp, port_udp); // Run the server with TCP and UDP sockets
         }
     } catch (const std::runtime_error &e) {
         std::cout << "Error: " << e.what() << std::endl;

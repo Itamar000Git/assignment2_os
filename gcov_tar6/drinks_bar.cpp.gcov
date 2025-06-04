@@ -1,0 +1,937 @@
+        -:    0:Source:drinks_bar.cpp
+        -:    0:Graph:drinks_bar.gcno
+        -:    0:Data:drinks_bar.gcda
+        -:    0:Runs:39
+        -:    0:Source is newer than graph
+        -:    1:#include "drinks_bar.hpp"
+        -:    2:#include <iostream>
+        -:    3:#include <stdexcept>
+        -:    4:#include <cstring>
+        -:    5:#include <cstdlib>
+        -:    6:#include <unistd.h>
+        -:    7:#include <sys/types.h>
+        -:    8:#include <sys/socket.h>
+        -:    9:#include <netinet/in.h>
+        -:   10:#include <arpa/inet.h>
+        -:   11:#include <vector>
+        -:   12:#include <string>
+        -:   13:#include <sstream>
+        -:   14:#include <signal.h>
+        -:   15:#include <unistd.h>
+        -:   16:#include <getopt.h>
+        -:   17:#include <sys/un.h>
+        -:   18:#include <fstream>
+        -:   19:#include <fcntl.h>
+        -:   20:#include <sys/mman.h>
+        -:   21:#include <sys/stat.h>
+        -:   22:
+        -:   23:
+        -:   24:int server_fd = -1, udp_fd = -1;
+        -:   25:
+        8:   26:void timeout_handler(int signum) {
+        8:   27:    std::cout << "No activity for "<<timeout<<" seconds. Closing server." << std::endl;
+        8:   28:    close(server_fd);
+        8:   29:    close(udp_fd);
+        8:   30:    exit(0);
+        -:   31:}
+        -:   32:
+    #####:   33:// void cleanup(int signum) {
+    #####:   34:// if (server_fd != -1) close(server_fd);
+    #####:   35:// if (udp_fd != -1) close(udp_fd);
+    #####:   36:// std::cout << "\nSockets closed. Exiting." << std::endl;
+    #####:   37:// exit(0);
+        -:   38:// }
+        -:   39:
+       61:   40:void printStock() {
+        -:   41:
+       61:   42:    std::cout << "=== Current Stock ===" << std::endl;
+       61:   43:    std::cout << "Total atoms   : " << my_stock->atom_count << std::endl;
+       61:   44:    std::cout << "Carbon (C)    : " << my_stock->carbon_count << std::endl;
+       61:   45:    std::cout << "Hydrogen (H)  : " << my_stock->hydrogen_count << std::endl;
+       61:   46:    std::cout << "Oxygen (O)    : " << my_stock->oxygen_count << std::endl;
+       61:   47:    std::cout << "=====================" << std::endl;
+       61:   48:}
+        -:   49:
+       40:   50:bool isInteger(const std::string& s) {
+        -:   51:    try {
+        -:   52:        size_t pos;
+       40:   53:        std::stoi(s, &pos);
+        -:   54:    
+       40:   55:        return pos == s.length();
+    =====:   56:    } catch (std::invalid_argument& e) {
+    =====:   57:        return false; 
+    =====:   58:    } catch (std::out_of_range& e) {
+    =====:   59:        return false; 
+    =====:   60:    }
+        -:   61:}
+        -:   62:
+        5:   63:bool deliver_water(long long count){
+        -:   64:    // if (count <= 0) {
+        -:   65:    //     std::cout << "Error: Invalid count for water delivery." << std::endl;
+        -:   66:    //     return false;
+        -:   67:    // }
+        5:   68:    loadFromFile(save_file);
+        5:   69:    if (my_stock->hydrogen_count < 2 * count || my_stock->oxygen_count < count) {
+        2:   70:        std::cout << "Error: Not enough atoms to deliver " << count << " water molecules." << std::endl;
+        2:   71:        return false;
+        -:   72:    }
+        -:   73:    
+        3:   74:    my_stock->hydrogen_count -= 2 * count;
+        3:   75:    my_stock->oxygen_count -= count;
+        3:   76:    my_stock->atom_count -= 3 * count; // 2H + O = H2O
+        3:   77:    std::cout << "Delivered " << count << " water molecules." << std::endl;
+        -:   78:    // printStock();
+        3:   79:    update_file(save_file);
+        3:   80:    return true;
+        -:   81:}
+        -:   82:
+        5:   83:bool deliver_carbon_dioxide(long long count) {
+        -:   84:    // if (count <= 0) {
+        -:   85:    //     std::cout << "Error: Invalid count for carbon dioxide delivery." << std::endl;
+        -:   86:    //     return false;
+        -:   87:    // }
+        5:   88:    loadFromFile(save_file);
+        5:   89:    if (my_stock->carbon_count < count || my_stock->oxygen_count < 2 * count) {
+        2:   90:        std::cout << "Error: Not enough atoms to deliver " << count << " carbon dioxide molecules." << std::endl;
+        2:   91:        return false;
+        -:   92:    }
+        -:   93:    
+        -:   94:
+        3:   95:    my_stock->carbon_count -= count;
+        3:   96:    my_stock->oxygen_count -= 2 * count;
+        3:   97:    my_stock->atom_count -= 3 * count; //CO2
+        3:   98:    std::cout << "Delivered " << count << " carbon dioxide molecules." << std::endl;
+        -:   99:    //printStock();
+        3:  100:    update_file(save_file);
+        -:  101:
+        3:  102:    return true;
+        -:  103:}
+        -:  104:
+        5:  105:bool deliver_alcohol(long long count) {
+        -:  106:    // if (count <= 0) {
+        -:  107:    //     std::cout << "Error: Invalid count for alcohol delivery." << std::endl;
+        -:  108:    //     return false;
+        -:  109:    // }
+        5:  110:    loadFromFile(save_file);
+        5:  111:    if (my_stock->carbon_count < 2*count || my_stock->hydrogen_count <  6*count || my_stock->oxygen_count < count) {
+        2:  112:        std::cout << "Error: Not enough atoms to deliver " << count << " alcohol molecules." << std::endl;
+        2:  113:        return false;
+        -:  114:    }
+        -:  115:    
+        -:  116:
+        3:  117:    my_stock->carbon_count -= 2*count;
+        3:  118:    my_stock->hydrogen_count -= 6 * count;
+        3:  119:    my_stock->oxygen_count -= count;
+        3:  120:    my_stock->atom_count -= 9 * count; //C2H6O
+        3:  121:    std::cout << "Delivered " << count << " alcohol molecules." << std::endl;
+        -:  122:    //printStock();
+        3:  123:    update_file(save_file);
+        3:  124:    return true;
+        -:  125:}
+        -:  126:
+        5:  127:bool deliver_glucose(long long count) {
+        -:  128:    // if (count <= 0) {
+        -:  129:    //     std::cout << "Error: Invalid count for glucose delivery." << std::endl;
+        -:  130:    //     return false;
+        -:  131:    // }
+        5:  132:    loadFromFile(save_file);
+        5:  133:    if (my_stock->carbon_count < 6*count || my_stock->hydrogen_count < 12 * count || my_stock->oxygen_count < 6*count) {
+        2:  134:        std::cout << "Error: Not enough atoms to deliver " << count << " glucose molecules." << std::endl;
+        2:  135:        return false;
+        -:  136:    }
+        -:  137:    
+        -:  138:
+        3:  139:    my_stock->carbon_count -= 6*count;
+        3:  140:    my_stock->hydrogen_count -= 12*count;
+        3:  141:    my_stock->oxygen_count -= 6*count;
+        3:  142:    my_stock->atom_count -= 24 * count; //C6H12O6
+        3:  143:    std::cout << "Delivered " << count << " glucose molecules." << std::endl;
+        -:  144:    //printStock();
+        3:  145:    update_file(save_file);
+        3:  146:    return true;
+        -:  147:}
+        -:  148:     
+       35:  149:void add_carbon(long long count) {
+       35:  150:    loadFromFile(save_file);
+       35:  151:    my_stock->carbon_count += count;
+       35:  152:    my_stock->atom_count += count;
+        -:  153:   
+       35:  154:    update_file(save_file);
+       35:  155:}
+        -:  156:
+       34:  157:void add_hydrogen(long long count) {
+       34:  158:    loadFromFile(save_file);
+       34:  159:    my_stock->hydrogen_count += count;
+       34:  160:    my_stock->atom_count += count;
+       34:  161:    update_file(save_file);
+       34:  162:}
+        -:  163:
+       37:  164:void add_oxygen(long long count) {
+       37:  165:    loadFromFile(save_file);
+       37:  166:    my_stock->oxygen_count += count;
+       37:  167:    my_stock->atom_count += count;
+       37:  168:    update_file(save_file);
+       37:  169:}
+        -:  170:
+        3:  171:long long num_of_soft_drinks(){
+        3:  172:    loadFromFile(save_file);
+        3:  173:    long long tmp_car=my_stock->carbon_count;
+        3:  174:    long long tmp_hyd=my_stock->hydrogen_count;
+        3:  175:    long long tmp_oxy=my_stock->oxygen_count;
+        3:  176:    long long count = 0;
+        -:  177:    while(true){
+        -:  178:        //water
+       15:  179:        tmp_hyd -= 2;
+       15:  180:        tmp_oxy -= 1;
+        -:  181:        //carbon dioxide
+       15:  182:        tmp_car -= 1;
+       15:  183:        tmp_oxy -= 2;
+        -:  184:        //glucose
+       15:  185:        tmp_car -= 6;
+       15:  186:        tmp_hyd -= 12;
+       15:  187:        tmp_oxy -= 6;
+       15:  188:        if(tmp_hyd < 0 || tmp_oxy < 0 || tmp_car < 0){
+        -:  189:            break;
+        -:  190:        }
+       12:  191:        count++;
+        -:  192:    }
+        3:  193:    std::cout << "Number of soft drinks that can be created: " << count << std::endl;
+        3:  194:    return count;
+        -:  195:}
+        -:  196:
+        3:  197:long long num_of_vodka(){
+        3:  198:    loadFromFile(save_file);
+        3:  199:    long long tmp_car=my_stock->carbon_count;
+        3:  200:    long long tmp_hyd=my_stock->hydrogen_count;
+        3:  201:    long long tmp_oxy=my_stock->oxygen_count;
+        3:  202:    long long count = 0;
+        -:  203:
+        -:  204:        while(true){
+        -:  205:        //water
+       25:  206:        tmp_hyd -= 2;
+       25:  207:        tmp_oxy -= 1;
+        -:  208:        //alcohol
+       25:  209:        tmp_car -= 2;
+       25:  210:        tmp_hyd -= 6;
+       25:  211:        tmp_oxy -= 1;
+        -:  212:        //glucose
+       25:  213:        tmp_car -= 1;
+       25:  214:        tmp_oxy -= 2;
+        -:  215:
+       25:  216:        if(tmp_hyd < 0 || tmp_oxy < 0 || tmp_car < 0){
+        -:  217:            break;
+        -:  218:        }
+       22:  219:        count++;
+        -:  220:    }
+        3:  221:    std::cout << "Number of vodka that can be created: " << count << std::endl;
+        3:  222:    return count;
+        -:  223:}
+        -:  224:
+        3:  225:long long num_of_champagne(){
+        3:  226:    loadFromFile(save_file);
+        3:  227:    long long tmp_car=my_stock->carbon_count;
+        3:  228:    long long tmp_hyd=my_stock->hydrogen_count;
+        3:  229:    long long tmp_oxy=my_stock->oxygen_count;
+        3:  230:    long long count = 0;
+        -:  231:
+        -:  232:        while(true){
+        -:  233:        //water
+       12:  234:        tmp_hyd -= 2;
+       12:  235:        tmp_oxy -= 1;
+        -:  236:        //alcohol
+       12:  237:        tmp_car -= 2;
+       12:  238:        tmp_hyd -= 6;
+       12:  239:        tmp_oxy -= 1;
+        -:  240:        //carbon dioxide
+       12:  241:        tmp_car -= 6;
+       12:  242:        tmp_hyd -= 12;
+       12:  243:        tmp_oxy -= 6;
+        -:  244:
+       12:  245:        if(tmp_hyd < 0 || tmp_oxy < 0 || tmp_car < 0){
+        -:  246:            break;
+        -:  247:        }
+        9:  248:        count++;
+        -:  249:    }
+        3:  250:    std::cout << "Number of champagne that can be created: " << count << std::endl;
+        3:  251:    return count;
+        -:  252:}
+        -:  253:
+        7:  254:void run_server(int port_tcp, int port_udp) {
+        -:  255:    int server_fd, new_socket, max_sd, activity, valread, sd;
+        7:  256:    int client_socket[FD_SETSIZE] = {0};
+        -:  257:    struct sockaddr_in address;
+        -:  258:    fd_set readfds;
+        -:  259:
+        -:  260:    // Create a TCP socket
+        7:  261:    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+    #####:  262:        throw std::runtime_error("socket failed");
+        -:  263:    }
+        7:  264:    int opt = 1;
+        7:  265:    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+    #####:  266:        throw std::runtime_error("setsockopt failed");
+        -:  267:    }
+        -:  268:
+        7:  269:    address.sin_family = AF_INET;
+        7:  270:    address.sin_addr.s_addr = INADDR_ANY;
+        7:  271:    address.sin_port = htons(port_tcp);
+        7:  272:    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
+        2:  273:        throw std::runtime_error("bind failed");
+        -:  274:    }
+        5:  275:    if (listen(server_fd, 10) < 0) {
+    #####:  276:        throw std::runtime_error("listen failed");
+        -:  277:    }
+        5:  278:    std::cout << "Server listening over tcp on port " << port_tcp << std::endl;
+        -:  279:
+        -:  280:    // Create a UDP socket
+        5:  281:    int udp_fd = socket(AF_INET, SOCK_DGRAM, 0);
+        5:  282:    if (udp_fd < 0) {
+    #####:  283:        throw std::runtime_error("UDP socket failed");
+        -:  284:    }
+        -:  285:    struct sockaddr_in udp_addr;
+        5:  286:    memset(&udp_addr, 0, sizeof(udp_addr));
+        5:  287:    udp_addr.sin_family = AF_INET;
+        5:  288:    udp_addr.sin_addr.s_addr = INADDR_ANY;
+        5:  289:    udp_addr.sin_port = htons(port_udp);
+        5:  290:    if (bind(udp_fd, (struct sockaddr*)&udp_addr, sizeof(udp_addr)) < 0) {
+    #####:  291:        throw std::runtime_error("UDP bind failed");
+        -:  292:    }
+        5:  293:    std::cout << "Server listening over udp on port " << port_udp << std::endl;
+        -:  294:
+        -:  295:    while (true) {
+      408:  296:        FD_ZERO(&readfds);
+       24:  297:        FD_SET(server_fd, &readfds);
+       24:  298:        FD_SET(udp_fd, &readfds);
+       24:  299:        FD_SET(0, &readfds); // Add stdin to the set for reading
+        -:  300:       
+       24:  301:        max_sd = server_fd;
+       24:  302:        if (udp_fd > max_sd) max_sd = udp_fd;
+      24*:  303:        if (max_sd < 0) max_sd = 0;
+        -:  304:
+    24600:  305:        for (int i = 0; i < FD_SETSIZE; i++) {
+    24576:  306:            sd = client_socket[i];
+    24576:  307:            if (sd > 0)
+        4:  308:                FD_SET(sd, &readfds);
+    24576:  309:            if (sd > max_sd)
+        4:  310:                max_sd = sd;
+        -:  311:        }
+        -:  312:
+       24:  313:        activity = select(max_sd + 1, &readfds, nullptr, nullptr, nullptr);
+      23*:  314:        if (activity < 0 && errno != EINTR) {
+    #####:  315:            std::cout << "select error" << std::endl;
+    #####:  316:            break;
+        -:  317:        }
+        -:  318:
+        -:  319:        // Handle new TCP connections
+       23:  320:        if (FD_ISSET(server_fd, &readfds)) {
+        1:  321:            socklen_t addrlen = sizeof(address);
+       1*:  322:            if ((new_socket = accept(server_fd, (struct sockaddr *)&address, &addrlen)) < 0) {
+    #####:  323:                std::cout << "accept error" << std::endl;
+    #####:  324:                continue;
+        -:  325:            }
+       1*:  326:            for (int i = 0; i < FD_SETSIZE; i++) {
+        1:  327:                if (client_socket[i] == 0) {
+        1:  328:                    client_socket[i] = new_socket;
+        1:  329:                    break;
+        -:  330:                }
+        -:  331:            }
+        1:  332:            std::cout << "New connection, socket fd: " << new_socket << std::endl;
+        -:  333:        }
+        -:  334:
+       23:  335:        if (FD_ISSET(0, &readfds)) {
+       10:  336:        std::string input;
+       10:  337:        std::getline(std::cin, input);
+       10:  338:            if (input == "exit") {
+        4:  339:                std::cout << "Exiting server..." << std::endl;
+        4:  340:                break;
+        -:  341:            }
+        6:  342:            if(input == "GEN SOFT DRINK"){
+        1:  343:                std::cout << "Received input: " << input << std::endl;
+        1:  344:                num_of_soft_drinks();
+        -:  345:            }
+        5:  346:            else if (input == "GEN VODKA"){
+        1:  347:                std::cout << "Received input: " << input << std::endl;
+        1:  348:                num_of_vodka();
+        -:  349:            }
+        4:  350:            else if(input == "GEN CHAMPAGNE"){
+        1:  351:            std::cout << "Received input: " << input << std::endl;
+        1:  352:                num_of_champagne();
+        -:  353:            }
+        -:  354:            else {
+        3:  355:                std::cout << "Unknown command: " << input << std::endl;
+        -:  356:            }
+        6:  357:            alarm(timeout);
+       10:  358:        }
+        -:  359:        // Handle UDP activity
+        -:  360:
+       19:  361:            if (FD_ISSET(udp_fd, &readfds)) {
+        8:  362:            char udp_buffer[1024] = {0};
+        -:  363:            struct sockaddr_in client_addr;
+        8:  364:            socklen_t addrlen = sizeof(client_addr);
+        8:  365:            ssize_t udp_len = recvfrom(udp_fd, udp_buffer, sizeof(udp_buffer) - 1, 0,
+        -:  366:                                    (struct sockaddr*)&client_addr, &addrlen);
+        8:  367:            if (udp_len > 0) {
+        8:  368:                udp_buffer[udp_len] = '\0';
+        8:  369:                std::cout << "Received UDP: " << udp_buffer << std::endl;
+        8:  370:                std::istringstream iss(udp_buffer);
+        8:  371:                std::string line;
+       16:  372:                while (std::getline(iss, line)) {
+        8:  373:                    std::istringstream line_stream(line);
+        8:  374:                    std::string cmd, molecule, amount_str;
+        8:  375:                    line_stream >> cmd >> molecule >> amount_str;
+       8*:  376:                    if (cmd == "DELIVER" && isInteger(amount_str)) {
+        8:  377:                        int amount = std::stoi(amount_str);
+        8:  378:                        std::string response;
+        8:  379:                        if (molecule == "WATER") {
+        2:  380:                            if (!deliver_water(amount)) {
+        1:  381:                                std::cout << "Failed to deliver water." << std::endl;
+        1:  382:                                response = "FAILED TO DELIVER WATER\n";
+        -:  383:                            } else {
+        1:  384:                                response = "SUCCESSFULLY DELIVERED WATER\n";
+        1:  385:                                std::cout << "Successfully delivered water." << std::endl;
+        -:  386:                            }
+        6:  387:                        } else if (molecule == "CARBON_DIOXIDE") {
+        2:  388:                            if (!deliver_carbon_dioxide(amount)) {
+        1:  389:                                std::cout << "Failed to deliver carbon dioxide." << std::endl;
+        1:  390:                                response = "FAILED TO DELIVER CARBON_DIOXIDE\n";
+        -:  391:                            } else {
+        1:  392:                                response = "SUCCESSFULLY DELIVERED CARBON_DIOXIDE\n";
+        -:  393:                            }
+        4:  394:                        } else if (molecule == "ALCOHOL") {
+        2:  395:                            if (!deliver_alcohol(amount)) {
+        1:  396:                                std::cout << "Failed to deliver alcohol." << std::endl;
+        1:  397:                                response = "FAILED TO DELIVER ALCOHOL\n";
+        -:  398:                            } else {
+        1:  399:                                response = "SUCCESSFULLY DELIVERED ALCOHOL\n";
+        -:  400:                            }
+        2:  401:                        } else if (molecule == "GLUCOSE") {
+        2:  402:                            if (!deliver_glucose(amount)) {
+        1:  403:                                std::cout << "Failed to deliver glucose." << std::endl;
+        1:  404:                                response = "FAILED TO DELIVER GLUCOSE\n";
+        -:  405:                            } else {
+        1:  406:                                response = "SUCCESSFULLY DELIVERED GLUCOSE\n";
+        -:  407:                            }
+        -:  408:                        } else {
+    #####:  409:                            std::cout << "Error: Unknown molecule type: " << molecule << std::endl;
+    #####:  410:                            response = "ERROR: UNKNOWN MOLECULE\n";
+        -:  411:                        }
+        -:  412:
+        8:  413:                        ssize_t sent = sendto(udp_fd, response.c_str(), response.size(), 0,
+        -:  414:                                            (struct sockaddr*)&client_addr, addrlen);
+        8:  415:                        if (sent < 0) {
+    #####:  416:                            std::cerr << "Send failed" << std::endl;
+        -:  417:                        }
+        8:  418:                        printStock();
+        8:  419:                        alarm(timeout);
+       8*:  420:                    }
+    #####:  421:                    //  else if (!cmd.empty()) {
+    #####:  422:                    //     std::cout << "Error: Invalid command: " << line << std::endl;
+    #####:  423:                    //     std::string response = "ERROR: INVALID COMMAND\n";
+        -:  424:                    //     sendto(udp_fd, response.c_str(), response.size(), 0,
+    #####:  425:                    //         (struct sockaddr*)&client_addr, addrlen);
+        8:  426:                    // }
+        8:  427:                }
+        -:  428:            }
+        -:  429:        }
+        -:  430:
+    19475:  431:        // Handle TCP client activity
+    19456:  432:        for (int i = 0; i < FD_SETSIZE; i++) {
+    19456:  433:            sd = client_socket[i];
+        4:  434:            if (sd > 0 && FD_ISSET(sd, &readfds)) {
+        4:  435:                char buffer[1024] = {0};
+        4:  436:                valread = read(sd, buffer, sizeof(buffer) - 1);
+        1:  437:                if (valread <= 0) {
+        1:  438:                    close(sd);
+        1:  439:                    client_socket[i] = 0;
+        -:  440:                    std::cout << "Client disconnected, socket fd: " << sd << std::endl;
+        3:  441:                } else {
+        3:  442:                    buffer[valread] = '\0';
+        3:  443:                    std::istringstream iss(buffer);
+        6:  444:                    std::string line;
+        3:  445:                    while (std::getline(iss, line)) {
+        3:  446:                        std::istringstream line_stream(line);
+        3:  447:                        std::string cmd, atom, amount_str;
+       3*:  448:                        line_stream >> cmd >> atom >> amount_str;
+        3:  449:                        if (cmd == "ADD" && isInteger(amount_str)) {
+        3:  450:                            int amount = std::stoi(amount_str);
+        1:  451:                            if (atom == "CARBON") {
+        2:  452:                                add_carbon(amount);
+        1:  453:                            } else if (atom == "HYDROGEN") {
+       1*:  454:                                add_hydrogen(amount);
+        1:  455:                            } else if (atom == "OXYGEN") {
+        -:  456:                                add_oxygen(amount);
+    #####:  457:                            } else {
+    #####:  458:                                std::cout << "Error: Unknown atom type: " << atom << std::endl;
+        -:  459:                                continue;
+        3:  460:                            }
+        3:  461:                            printStock();
+    #####:  462:                            alarm(timeout);
+    #####:  463:                        } else if (!cmd.empty()) {
+        -:  464:                            std::cout << "Error: Invalid command: " << line << std::endl;
+        3:  465:                        }
+        3:  466:                    }
+        -:  467:                }
+        -:  468:            }
+       19:  469:        }
+        4:  470:    }
+        4:  471:    close(server_fd);
+        4:  472:    close(udp_fd);
+        -:  473:}
+        -:  474:
+       14:  475:
+        -:  476:void run_server_uds(bool has_datagram_path, bool has_stream_path) {
+       14:  477:    
+       14:  478:    int uds_stream_fd = -1, uds_dgram_fd = -1, new_socket, max_sd, activity, valread, sd;
+        -:  479:    int client_socket[FD_SETSIZE] = {0};
+        -:  480:    fd_set readfds;
+       14:  481:    // Create a uds stream
+       14:  482:    if (!stream_path.empty()) {
+      14*:  483:        uds_stream_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+        -:  484:        if (uds_stream_fd < 0) throw std::runtime_error("UDS dgram socket failed");
+        -:  485:
+       14:  486:        struct sockaddr_un stream_addr;
+       14:  487:        memset(&stream_addr, 0, sizeof(stream_addr));
+       14:  488:        stream_addr.sun_family = AF_UNIX;
+        -:  489:        strncpy(stream_addr.sun_path, stream_path.c_str(), sizeof(stream_addr.sun_path) - 1);
+       14:  490:
+       14:  491:        unlink(stream_path.c_str()); 
+    #####:  492:        if (bind(uds_stream_fd, (struct sockaddr*)&stream_addr, sizeof(stream_addr)) < 0)
+       14:  493:            throw std::runtime_error("UDS stream bind failed");
+    #####:  494:        if (listen(uds_stream_fd, 10) < 0)
+        -:  495:            throw std::runtime_error("UDS stream listen failed");
+       14:  496:
+        -:  497:        std::cout << "Server listening over UDS stream at " << stream_path << std::endl;
+        -:  498:    }
+       14:  499:    // Create a uds datagram
+       14:  500:     if (!datagram_path.empty()) {
+      14*:  501:        uds_dgram_fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+        -:  502:        if (uds_dgram_fd < 0) throw std::runtime_error("UDS stream socket failed");
+        -:  503:
+       14:  504:        struct sockaddr_un dgram_addr;
+       14:  505:        memset(&dgram_addr, 0, sizeof(dgram_addr));
+       14:  506:        dgram_addr.sun_family = AF_UNIX;
+        -:  507:        strncpy(dgram_addr.sun_path, datagram_path.c_str(), sizeof(dgram_addr.sun_path) - 1);
+       14:  508:
+       14:  509:        unlink(datagram_path.c_str()); 
+    #####:  510:        if (bind(uds_dgram_fd, (struct sockaddr*)&dgram_addr, sizeof(dgram_addr)) < 0)
+        -:  511:            throw std::runtime_error("UDS datagram bind failed");
+        -:  512:       
+       14:  513:
+        -:  514:        std::cout << "Server listening over UDS datagram at " << datagram_path << std::endl;
+        -:  515:    }
+        -:  516:
+     1139:  517:    while (true) {
+       67:  518:        FD_ZERO(&readfds);
+       67:  519:        if (uds_stream_fd != -1) FD_SET(uds_stream_fd, &readfds);
+       67:  520:        if (uds_dgram_fd != -1) FD_SET(uds_dgram_fd, &readfds);
+        -:  521:        FD_SET(0, &readfds); // Add stdin to the set for reading
+       67:  522:       
+       67:  523:        max_sd =0;
+       67:  524:        if (uds_stream_fd > max_sd) max_sd = uds_stream_fd;
+        -:  525:        if (uds_dgram_fd > max_sd) max_sd = uds_dgram_fd;
+    68675:  526:
+    68608:  527:        for (int i = 0; i < FD_SETSIZE; i++) {
+    68608:  528:            sd = client_socket[i];
+       25:  529:            if (sd > 0)
+    68608:  530:                FD_SET(sd, &readfds);
+       25:  531:            if (sd > max_sd)
+        -:  532:                max_sd = sd;
+        -:  533:        }
+       67:  534:
+      60*:  535:        activity = select(max_sd + 1, &readfds, nullptr, nullptr, nullptr);
+    #####:  536:        if (activity < 0 && errno != EINTR) {
+    #####:  537:            std::cout << "select error" << std::endl;
+        -:  538:            break;
+        -:  539:        }
+       60:  540:
+       16:  541:        if (FD_ISSET(0, &readfds)) {
+       16:  542:        std::string input;
+       16:  543:        std::getline(std::cin, input);
+        7:  544:            if (input == "exit") {
+        7:  545:                std::cout << "Exiting server..." << std::endl;
+        -:  546:                break;
+        9:  547:            }
+        2:  548:            if(input == "GEN SOFT DRINK"){
+        2:  549:                std::cout << "Received input: " << input << std::endl;
+        -:  550:                num_of_soft_drinks();
+        7:  551:            }
+        2:  552:            else if (input == "GEN VODKA"){
+        2:  553:                std::cout << "Received input: " << input << std::endl;
+        -:  554:                num_of_vodka();
+        5:  555:            }
+        2:  556:            else if(input == "GEN CHAMPAGNE"){
+        2:  557:            std::cout << "Received input: " << input << std::endl;
+        -:  558:                num_of_champagne();
+        -:  559:            }
+        3:  560:            else {
+        -:  561:                std::cout << "Unknown command: " << input << std::endl;
+        9:  562:            }
+       16:  563:            alarm(timeout);
+        -:  564:        }
+       53:  565:        // Handle new UDS stream connections
+        -:  566:        if (uds_stream_fd != -1 && FD_ISSET(uds_stream_fd, &readfds)) {
+        8:  567:            struct sockaddr_un client_addr;
+        8:  568:            socklen_t addrlen = sizeof(client_addr);
+       8*:  569:            new_socket = accept(uds_stream_fd, (struct sockaddr*)&client_addr, &addrlen);
+    #####:  570:            if (new_socket < 0) {
+    #####:  571:                std::cout << "accept error" << std::endl;
+        -:  572:                continue;
+       8*:  573:            }
+        8:  574:            for (int i = 0; i < FD_SETSIZE; i++) {
+        8:  575:                if (client_socket[i] == 0) {
+        8:  576:                    client_socket[i] = new_socket;
+        -:  577:                    break;
+        -:  578:                }
+        8:  579:            }
+        -:  580:            std::cout << "New UDS stream connection, socket fd: " << new_socket << std::endl;
+        -:  581:        }
+       53:  582:        // Handle new UDS datagram connections
+       12:  583:            if (uds_dgram_fd!=-1&&FD_ISSET(uds_dgram_fd, &readfds)) {
+        -:  584:            char dgram_buffer[1024] = {0};
+       12:  585:            struct sockaddr_un client_addr;
+       12:  586:            socklen_t addrlen = sizeof(client_addr);
+        -:  587:            ssize_t dgram_len = recvfrom(uds_dgram_fd, dgram_buffer, sizeof(dgram_buffer) - 1, 0,
+       12:  588:                                    (struct sockaddr*)&client_addr, &addrlen);
+       12:  589:            if (dgram_len > 0) {
+       12:  590:                dgram_buffer[dgram_len] = '\0';
+       12:  591:                std::cout << "Received UDS datagram: " << dgram_buffer << std::endl;
+       12:  592:                std::istringstream iss(dgram_buffer);
+       24:  593:                std::string line;
+       12:  594:                while (std::getline(iss, line)) {
+       12:  595:                    std::istringstream line_stream(line);
+       12:  596:                    std::string cmd, molecule, amount_str;
+      12*:  597:                    line_stream >> cmd >> molecule >> amount_str;
+       12:  598:                    if (cmd == "DELIVER" && isInteger(amount_str)) {
+       12:  599:                        int amount = std::stoi(amount_str);
+       12:  600:                        std::string response;
+        3:  601:                        if (molecule == "WATER") {
+        1:  602:                            if (!deliver_water(amount)) {
+        1:  603:                                std::cout << "Failed to deliver water." << std::endl;
+        -:  604:                                response = "FAILED TO DELIVER WATER\n";
+        2:  605:                            } else {
+        2:  606:                                response = "SUCCESSFULLY DELIVERED WATER\n";
+        -:  607:                                std::cout << "Successfully delivered water." << std::endl;
+        9:  608:                            }
+        3:  609:                        } else if (molecule == "CARBON_DIOXIDE") {
+        1:  610:                            if (!deliver_carbon_dioxide(amount)) {
+        1:  611:                                std::cout << "Failed to deliver carbon dioxide." << std::endl;
+        -:  612:                                response = "FAILED TO DELIVER CARBON_DIOXIDE\n";
+        2:  613:                            } else {
+        -:  614:                                response = "SUCCESSFULLY DELIVERED CARBON_DIOXIDE\n";
+        6:  615:                            }
+        3:  616:                        } else if (molecule == "ALCOHOL") {
+        1:  617:                            if (!deliver_alcohol(amount)) {
+        1:  618:                                std::cout << "Failed to deliver alcohol." << std::endl;
+        -:  619:                                response = "FAILED TO DELIVER ALCOHOL\n";
+        2:  620:                            } else {
+        -:  621:                                response = "SUCCESSFULLY DELIVERED ALCOHOL\n";
+        3:  622:                            }
+        3:  623:                        } else if (molecule == "GLUCOSE") {
+        1:  624:                            if (!deliver_glucose(amount)) {
+        1:  625:                                std::cout << "Failed to deliver glucose." << std::endl;
+        -:  626:                                response = "FAILED TO DELIVER GLUCOSE\n";
+        2:  627:                            } else {
+        -:  628:                                response = "SUCCESSFULLY DELIVERED GLUCOSE\n";
+        -:  629:                            }
+    #####:  630:                        } else {
+    #####:  631:                            std::cout << "Error: Unknown molecule type: " << molecule << std::endl;
+        -:  632:                            response = "ERROR: UNKNOWN MOLECULE\n";
+        -:  633:                        }
+       12:  634:
+        -:  635:                        ssize_t sent = sendto(uds_dgram_fd, response.c_str(), response.size(), 0,
+       12:  636:                                            (struct sockaddr*)&client_addr, addrlen);
+    #####:  637:                        if (sent < 0) {
+        -:  638:                            std::cerr << "Send failed" << std::endl;
+       12:  639:                        }
+       12:  640:                        printStock();
+      12*:  641:                        alarm(timeout);
+    #####:  642:                    } 
+    #####:  643:                    // else if (!cmd.empty()) {
+    #####:  644:                    //     std::cout << "Error: Invalid command: " << line << std::endl;
+        -:  645:                    //     std::string response = "ERROR: INVALID COMMAND\n";
+    #####:  646:                    //     sendto(uds_dgram_fd, response.c_str(), response.size(), 0,
+       12:  647:                    //         (struct sockaddr*)&client_addr, addrlen);
+       12:  648:                    // }
+        -:  649:                }
+        -:  650:            }
+        -:  651:        }
+    54325:  652:
+    54272:  653:        // Handle uds stream client activity
+    54272:  654:        for (int i = 0; i < FD_SETSIZE; i++) {
+       24:  655:            sd = client_socket[i];
+       24:  656:            if (sd > 0 && FD_ISSET(sd, &readfds)) {
+       24:  657:                char buffer[1024] = {0};
+        7:  658:                valread = read(sd, buffer, sizeof(buffer) - 1);
+        7:  659:                if (valread <= 0) {
+        7:  660:                    close(sd);
+        -:  661:                    client_socket[i] = 0;
+       17:  662:                    std::cout << "Client disconnected, socket fd: " << sd << std::endl;
+       17:  663:                } else {
+       17:  664:                    buffer[valread] = '\0';
+       34:  665:                    std::istringstream iss(buffer);
+       17:  666:                    std::string line;
+       17:  667:                    while (std::getline(iss, line)) {
+       17:  668:                        std::istringstream line_stream(line);
+      17*:  669:                        std::string cmd, atom, amount_str;
+       17:  670:                        line_stream >> cmd >> atom >> amount_str;
+       17:  671:                        if (cmd == "ADD" && isInteger(amount_str)) {
+        5:  672:                            int amount = std::stoi(amount_str);
+       12:  673:                            if (atom == "CARBON") {
+        5:  674:                                add_carbon(amount);
+       7*:  675:                            } else if (atom == "HYDROGEN") {
+        7:  676:                                add_hydrogen(amount);
+        -:  677:                            } else if (atom == "OXYGEN") {
+    #####:  678:                                add_oxygen(amount);
+    #####:  679:                            } else {
+        -:  680:                                std::cout << "Error: Unknown atom type: " << atom << std::endl;
+       17:  681:                                continue;
+       17:  682:                            }
+    #####:  683:                            printStock();
+    #####:  684:                            alarm(timeout);
+        -:  685:                        } else if (!cmd.empty()) {
+       17:  686:                            std::cout << "Error: Invalid command: " << line << std::endl;
+       17:  687:                        }
+        -:  688:                    }
+        -:  689:                }
+       53:  690:            }
+        7:  691:        }
+        7:  692:    }
+        7:  693:    if (uds_stream_fd != -1) close(uds_stream_fd);
+        7:  694:    if (uds_dgram_fd != -1) close(uds_dgram_fd);
+        7:  695:    if (!stream_path.empty()) unlink(stream_path.c_str());
+        -:  696:    if (!datagram_path.empty()) unlink(datagram_path.c_str());
+        -:  697:}
+       38:  698:
+        -:  699:
+       38:  700:void updateStock(int argc, char* argv[], int& port_tcp, int& port_udp) {
+        -:  701:    int opt;
+      247:  702:    bool has_tcp = false, has_udp = false;
+      214:  703:    
+        -:  704:    while ((opt = getopt_long(argc, argv, "o:c:h:t:T:U:s:d:f:", long_options, nullptr)) != -1) {
+        -:  705:        switch (opt) {
+        -:  706:             if(std::atoi(optarg) <= 0) {
+        -:  707:                    std::cerr << "Error: any flag must be a positive integer." << std::endl;
+        -:  708:                    exit(EXIT_FAILURE);
+       29:  709:                }
+      209:  710:            case 'o':
+       29:  711:                add_oxygen(std::atoi(optarg));
+       29:  712:                break;
+       29:  713:            case 'c':
+       28:  714:                add_carbon(std::atoi(optarg));
+       28:  715:                break;
+       28:  716:            case 'h':
+       27:  717:                add_hydrogen(std::atoi(optarg));
+       27:  718:                break;
+       27:  719:            case 't':
+       15:  720:                timeout = std::atoi(optarg);
+       15:  721:                break;
+       15:  722:            case 'T':
+       15:  723:                port_tcp = std::atoi(optarg);
+        1:  724:                has_tcp = true;
+        1:  725:                if (port_tcp <= 0|| port_tcp > 65535) {
+        -:  726:                    std::cerr << "Error: TCP port must be a positive integer." << std::endl;
+       14:  727:                    exit(EXIT_FAILURE);
+       13:  728:                }
+       13:  729:                break;
+       13:  730:            case 'U':
+       13:  731:                port_udp = std::atoi(optarg);
+        1:  732:                has_udp = true;
+        1:  733:                if (port_udp <= 0 || port_udp > 65535) {
+        -:  734:                    std::cerr << "Error: UDP port must be a positive integer." << std::endl;
+       12:  735:                    exit(EXIT_FAILURE);
+       24:  736:                }
+       24:  737:                break;
+       24:  738:            case 's':
+       24:  739:                stream_path = optarg;
+       21:  740:                has_stream_path = true;
+       21:  741:                break;
+       21:  742:            case 'd':
+       21:  743:                datagram_path = optarg;
+       25:  744:                has_datagram_path = true;
+       25:  745:                break;
+       25:  746:            case 'f':
+        -:  747:                save_file = optarg;
+       25:  748:                load_from_file= true;
+        4:  749:                struct stat st;
+        4:  750:                if (stat(save_file.c_str(), &st) != 0) {
+        4:  751:                    new_file = true;
+    #####:  752:                    int fd = open(save_file.c_str(), O_RDWR | O_CREAT , 0666); // Open the file for reading and writing
+    #####:  753:                    if (fd < 0) {
+        -:  754:                        std::cerr << "Error: Could not open filee " << save_file << std::endl;
+        -:  755:                        return;
+       25:  756:                    }
+        3:  757:                }
+        -:  758:                break;
+        3:  759:            default:
+        3:  760:                std::cerr << "Usage: " << argv[0]
+        -:  761:                          << " -T <tcp_port> -U <udp_port> [-o <oxygen>] [-c <carbon>] [-h <hydrogen>] [-t <timeout>]\n";
+        -:  762:                exit(EXIT_FAILURE);
+       33:  763:        }
+        7:  764:    }
+        -:  765:      if ((has_tcp || has_udp) && (has_stream_path || has_datagram_path)) {
+        7:  766:        std::cerr << "Error: Cannot use both TCP/UDP and UDS options together.\n";
+        7:  767:        std::cerr << "Usage: " << argv[0]
+        -:  768:                  << " [-T <tcp_port> -U <udp_port> | -s <UDS stream file path> -d <UDS datagram file path>] [-o <oxygen>] [-c <carbon>] [-h <hydrogen>] [-t <timeout>]\n";
+       26:  769:        exit(EXIT_FAILURE);
+        2:  770:    }
+        -:  771:    if ((has_tcp || has_udp) && (!has_tcp || !has_udp)) {
+        2:  772:        std::cerr << "Error: Both -T (TCP port) and -U (UDP port) flags are required.\n";
+        2:  773:          std::cerr << "Usage: " << argv[0]
+        -:  774:                  << " [-T <tcp_port> -U <udp_port> | -s <UDS stream file path> -d <UDS datagram file path>] [-o <oxygen>] [-c <carbon>] [-h <hydrogen>] [-t <timeout>]\n";
+       24:  775:        exit(EXIT_FAILURE);
+        2:  776:    }
+        -:  777:    if ((has_stream_path || has_datagram_path) && (!has_stream_path || !has_datagram_path)) {
+        2:  778:        std::cerr << "Error: Both -s (stream path) and -d (datagram path) flags are required for UDS mode.\n";
+        2:  779:        std::cerr << "Usage: " << argv[0]
+        -:  780:                  << " [-T <tcp_port> -U <udp_port> | -s <UDS stream file path> -d <UDS datagram file path>] [-o <oxygen>] [-c <carbon>] [-h <hydrogen>] [-t <timeout>]\n";
+       22:  781:        exit(EXIT_FAILURE);
+        1:  782:    }
+        -:  783:    if (!((has_tcp && has_udp) || (has_stream_path && has_datagram_path))) {
+        1:  784:        std::cerr << "Error: Must provide either both TCP/UDP or both UDS stream/datagram options.\n";
+        1:  785:        std::cerr << "Usage: " << argv[0]
+        -:  786:                  << " [-T <tcp_port> -U <udp_port> | -s <UDS stream file path> -d <UDS datagram file path>] [-o <oxygen>] [-c <carbon>] [-h <hydrogen>] [-t <timeout>]\n";
+        -:  787:        exit(EXIT_FAILURE);
+       21:  788:    }
+        4:  789:
+        4:  790:    if(new_file==true){
+        -:  791:            update_file(save_file);
+        -:  792:            new_file = false;
+        -:  793:    }
+        -:  794:     
+      154:  795:}
+      154:  796:
+       54:  797:void loadFromFile(std::string save_file){   
+    #####:  798:if(load_from_file==true){
+    #####:  799:   if(new_file==true){
+        -:  800:            update_file(save_file);
+       54:  801:            new_file = false;
+       54:  802:    }
+    #####:  803:    int fd = open(save_file.c_str(), O_RDWR | O_CREAT, 0666);
+    #####:  804:    if (fd < 0) {
+        -:  805:        std::cerr << "Error: Could not open file " << save_file << std::endl;
+       54:  806:        exit(EXIT_FAILURE);
+    #####:  807:    }
+    #####:  808:    if (ftruncate(fd, sizeof(Stock)) == -1) { // Set the file size to the size of Stock
+    #####:  809:        std::cerr << "Error: Could not set file size" << std::endl;
+        -:  810:        close(fd);
+        -:  811:        exit(EXIT_FAILURE);
+       54:  812:    }
+       54:  813:    struct flock fl; // File lock structure
+       54:  814:    fl.l_type = F_WRLCK; // Set the lock type to write lock
+       54:  815:    fl.l_whence = SEEK_SET; // Set the lock starting point to the beginning of the file
+       54:  816:    fl.l_start = 0; // Start locking from the beginning of the file
+        -:  817:    fl.l_len = 0; // Lock the entire file
+       54:  818:    fcntl(fd, F_SETLKW, &fl); // Apply the lock
+       54:  819:    // Map the file to memory
+    #####:  820:    Stock* mapped_stock = (Stock*)mmap(NULL, sizeof(Stock), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    #####:  821:    if (mapped_stock == MAP_FAILED) {
+    #####:  822:        std::cerr << "Error: mmap failed" << std::endl;
+        -:  823:        close(fd);
+        -:  824:        exit(EXIT_FAILURE);
+       54:  825:    }
+       54:  826:
+       54:  827:    my_stock->atom_count = mapped_stock->atom_count;
+       54:  828:    my_stock->carbon_count = mapped_stock->carbon_count;
+        -:  829:    my_stock->hydrogen_count = mapped_stock->hydrogen_count;
+       54:  830:    my_stock->oxygen_count = mapped_stock->oxygen_count;
+       54:  831:
+       54:  832:    fl.l_type = F_UNLCK; // Set the lock type to unlock
+       54:  833:    fcntl(fd, F_SETLK, &fl); // Release the lock
+        -:  834:    munmap(mapped_stock, sizeof(Stock)); // Unmap the memory
+      154:  835:    close(fd);
+        -:  836:}
+      122:  837:}
+        -:  838:
+      122:  839:void update_file(std::string file_p) {
+        -:  840:
+        -:  841:    if(load_from_file==true){
+       26:  842:        
+       26:  843:       // loadFromFile(file_p);
+    #####:  844:        int fd = open(file_p.c_str(), O_RDWR | O_CREAT , 0666); // Open the file for reading and writing
+    #####:  845:        if (fd < 0) {
+        -:  846:            std::cerr << "Error: Could not open filee " << file_p << std::endl;
+        -:  847:            return;
+       26:  848:        }
+    #####:  849:        
+    #####:  850:        if (ftruncate(fd, sizeof(Stock)) == -1) {
+    #####:  851:        std::cerr << "Error: Could not set file size" << std::endl;
+        -:  852:        close(fd);
+        -:  853:        return;
+       26:  854:        }
+       26:  855:        struct flock fl; // File lock structure
+       26:  856:        fl.l_type = F_WRLCK; // Set the lock type to write lock
+       26:  857:        fl.l_whence = SEEK_SET; // Set the lock starting point to the beginning of the file
+       26:  858:        fl.l_start = 0; // Start locking from the beginning of the file
+        -:  859:        fl.l_len = 0; // Lock the entire file
+       26:  860:        fcntl(fd, F_SETLKW, &fl); // Apply the lock
+       26:  861:        // Map the file to memory
+    #####:  862:        Stock* mapped_stock = (Stock*)mmap(NULL, sizeof(Stock), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    #####:  863:        if (mapped_stock == MAP_FAILED) {
+    #####:  864:            std::cerr << "Error: mmap failed" << std::endl;
+        -:  865:            close(fd);
+        -:  866:            return;
+        -:  867:        }
+       26:  868:
+       26:  869:    
+       26:  870:        mapped_stock->atom_count = my_stock->atom_count;
+       26:  871:        mapped_stock->carbon_count = my_stock->carbon_count;
+       26:  872:        mapped_stock->hydrogen_count = my_stock->hydrogen_count;
+        -:  873:        mapped_stock->oxygen_count = my_stock->oxygen_count;
+       26:  874:        msync(mapped_stock, sizeof(Stock), MS_SYNC); // Synchronize the changes to the file
+       26:  875:
+       26:  876:        fl.l_type = F_UNLCK;// Set the lock type to unlock
+       26:  877:        fcntl(fd, F_SETLK, &fl); // Release the lock
+        -:  878:        munmap(mapped_stock, sizeof(Stock)); // Unmap the memory
+        -:  879:        close(fd);
+        -:  880:        //printStock();
+        -:  881:    }
+        -:  882:    
+        -:  883:}
+        -:  884:
+       39:  885:
+       39:  886:
+        -:  887:int main(int argc, char *argv[]) { // Main function to start the server
+        1:  888:    if (argc < 3) {
+        1:  889:          std::cerr << "Usage: " << argv[0]
+        -:  890:                  << " [-T <tcp_port> -U <udp_port> | -s <UDS stream file path> -d <UDS datagram file path>] [-o <oxygen>] [-c <carbon>] [-h <hydrogen>] [-t <timeout>]\n";
+        -:  891:        return 0;
+        -:  892:    }
+        -:  893:
+        -:  894:
+        -:  895:    int port_tcp ;
+        -:  896:    int port_udp ;
+       38:  897:
+        -:  898:   
+       21:  899:    updateStock(argc, argv, port_tcp, port_udp);
+       21:  900:    //printStock();
+       19:  901:    std::cout << std::boolalpha << new_file << std::endl;
+        -:  902:    if(load_from_file==true && new_file==false){
+        -:  903:       loadFromFile(save_file);
+        -:  904:    }
+        -:  905:
+        -:  906:    // if(new_file==true){
+        -:  907:    //     new_file =false;
+        -:  908:    // }
+       21:  909:
+       21:  910:    
+       21:  911:    printStock();
+       21:  912:    signal(SIGINT, cleanup);
+        -:  913:    signal(SIGALRM, timeout_handler);
+        -:  914:    alarm(timeout);
+        -:  915:
+        -:  916:    
+       21:  917:
+       14:  918:    try {
+        -:  919:        if(has_datagram_path || has_stream_path) {
+        -:  920:              run_server_uds(has_datagram_path, has_stream_path );  
+        -:  921:            
+        -:  922:           
+        7:  923:        }
+        -:  924:        else{
+        2:  925:            run_server(port_tcp, port_udp);
+        2:  926:        }
+        2:  927:    } catch (const std::runtime_error &e) {
+       13:  928:        std::cout << "Error: " << e.what() << std::endl;
+       13:  929:    }
+        -:  930:    delete my_stock; // Clean up the stock object
+        -:  931:    return 1;
+        -:  932:}
